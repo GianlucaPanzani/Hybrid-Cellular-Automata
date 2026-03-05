@@ -1,0 +1,1023 @@
+% !TeX program = pdflatex
+\documentclass[10pt,aspectratio=169]{beamer}
+
+% ---------- Theme (simple + clean) ----------
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+
+% ---------- Packages ----------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{bm}
+\usepackage{physics}
+\usepackage{booktabs}
+\usepackage{hyperref}
+
+\title[Hybrid CA for Avascular Tumour Growth]{Hybrid CA for Avascular Tumour Growth:\\
+From Eco--Evolutionary Selection (Gerlee \& Anderson, 2007) to Nutrient-Gradient-Driven Invasion (Messina et al., 2023)}
+\author{Gianluca Panzani}
+\institute{Unipi - Computer Science AI}
+\date{\today}
+
+\setbeamertemplate{section page}{
+  \centering
+  \vfill
+  {\LARGE\bfseries \insertsectionhead\par}
+  \vfill
+}
+\AtBeginSection{\begin{frame}[plain]\sectionpage\end{frame}}
+
+\setbeamertemplate{headline}{
+  \leavevmode
+  \hbox{
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.4ex,dp=1.1ex,left]{section in head/foot}
+      \hspace{0.8em}\insertsectionhead
+    \end{beamercolorbox}
+  }
+}
+
+\setbeamertemplate{footline}{
+  \leavevmode
+  \hbox{
+    \begin{beamercolorbox}[wd=.9\paperwidth,ht=2.4ex,dp=1.1ex,left]{author in head/foot}
+      \hspace{0.8em}\insertshorttitle
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[wd=.1\paperwidth,ht=2.4ex,dp=1.1ex,right]{date in head/foot}
+      \insertframenumber/35\hspace{0.8em}
+    \end{beamercolorbox}
+  }
+}
+
+
+\begin{document}
+
+% ---------------- Title slide ----------------
+\begin{frame}[plain,noframenumbering]
+  \titlepage
+  \vspace{-0.6em}
+  \begin{center}
+    {\large Computational Models for Complex Systems}
+  \end{center}
+\end{frame}
+
+
+
+
+\section{Introduction}
+
+% ============================================================
+\begin{frame}{Why these two papers}
+\small
+Both papers study \textbf{avascular tumour growth} with the same modelling backbone:
+\begin{itemize}
+  \item Cells: a \textbf{cellular automaton (CA)} on a lattice;
+  \item Nutrients: \textbf{continuous concentration fields} (e.g., oxygen/glucose);
+  \item Transport: nutrient fields evolve via \textbf{reaction--diffusion PDEs};
+  \item Bidirectional coupling: nutrients \emph{drive} cell actions; cells \emph{consume/produce} nutrients.
+\end{itemize}
+
+\medskip
+They differ in the biological mechanism emphasized:
+\begin{itemize}
+  \item \textbf{Gerlee \& Anderson (2007):} oxygen limitation drives \textbf{eco--evolutionary selection} (heritable variation in cell response).
+  \item \textbf{Messina et al. (2023):} glucose gradients drive \textbf{directional invasion/chemotaxis} and separate drivers of \textbf{growth vs invasiveness}.
+\end{itemize}
+
+\medskip
+\textbf{Take-home:} same hybrid CA/PDE scaffold $\Rightarrow$ clean comparison of \emph{selection under oxygen scarcity} vs \emph{migration under glucose gradients}.
+\end{frame}
+
+% ============================================================
+\begin{frame}{Common mathematical scaffold (hybrid CA + PDE)}
+\small
+\textbf{Lattice.} $\Lambda=\{x_i\}_{i=1}^N \subset \Omega\subset\mathbb{R}^d$ (typically $d=2$). One cell per site.
+
+\medskip
+\textbf{CA state.} For each site $x_i$,
+\[
+s_i(t)\in\mathcal{S}\quad (\text{e.g., proliferative/quiescent/apoptotic/motile}).
+\]
+Local update (deterministic or stochastic):
+\[
+s_i(t+\Delta t)=\mathcal{U}\!\left(s_i(t),\{s_j(t)\}_{j\in\mathcal{N}(i)},\bm{c}(x_i,t);\bm{\theta}\right).
+\]
+
+\medskip
+\textbf{Microenvironment fields.} $\bm{c}(x,t)\in\mathbb{R}^m$ (oxygen, glucose, etc.) evolve by
+\[
+\partial_t \bm{c}=\bm{D}\Delta\bm{c}+\bm{R}\!\left(\bm{c},\{s_i\}\right),
+\]
+where $\bm{R}$ encodes cell-dependent consumption/production.
+
+\medskip
+\textbf{Coupling.} $s_i$ depends on $\bm{c}(x_i,t)$; $\bm{R}$ depends on occupancy/state at sites.
+\end{frame}
+
+% ============================================================
+\begin{frame}{Gerlee \& Anderson (2007): oxygen-driven selection in a hybrid CA}
+\small
+\textbf{Aim.} Explain how oxygen availability shapes (i) tumour \textbf{morphology} and (ii) \textbf{clonal/phenotypic evolution} in avascular growth.
+
+\medskip
+\textbf{Key modelling choice: cell response network.}
+Each cell carries a feed-forward map from local microenvironment to action:
+\[
+\bm{y}_i(t)=F\!\left(\bm{u}_i(t);\bm{w}_i\right),\qquad \bm{u}_i(t)=\bm{u}\!\left(\bm{c}(x_i,t)\right),
+\]
+where $\bm{w}_i$ are cell-specific parameters (weights/thresholds).
+
+\medskip
+\textbf{Heritability + mutation.} Upon division:
+\[
+\bm{w}_{\text{child}}=\bm{w}_{\text{parent}}+\bm{\eta}\quad (\text{small random perturbation}).
+\]
+Resource competition $\Rightarrow$ selection over $\bm{w}$ (eco--evolutionary dynamics).
+
+\medskip
+\textbf{Reported outcomes (qualitative).}
+Oxygen levels shift tumour \textbf{shape} (compact vs fingered) and modulate emergent \textbf{aggressiveness/diversity}.
+\end{frame}
+
+% ============================================================
+\begin{frame}{Messina et al. (2023): glucose gradients, chemotaxis, growth vs invasiveness}
+\small
+\textbf{Aim.} Quantify how \textbf{glucose gradients} affect spheroid \textbf{growth} and \textbf{invasiveness}, and identify dominant parameters for each.
+
+\medskip
+\textbf{Microenvironment: glucose field.}
+A representative reaction--diffusion form:
+\[
+\partial_t g = D_g \Delta g - \rho\!\big(s(x,t)\big)\,g,
+\]
+with boundary conditions inducing either:
+\begin{itemize}
+  \item \textbf{isotropic supply} (uniform boundary $g$),
+  \item \textbf{anisotropic supply} (different boundary values) $\Rightarrow$ \textbf{gradient}.
+\end{itemize}
+
+\medskip
+\textbf{CA dynamics with chemotaxis.}
+Updates depend on local $g$ and (for movement) on $\nabla g$:
+\[
+s_i(t+\Delta t)=\mathcal{U}\!\left(s_i(t),\{s_j\}_{j\in\mathcal{N}(i)}, g(x_i,t),\nabla g(x_i,t);\bm{\theta}\right).
+\]
+
+\medskip
+\textbf{Reported outcomes (qualitative).}
+Growth is mainly controlled by proliferation/adhesion-type parameters, while invasiveness is primarily driven by chemotactic sensitivity.
+\end{frame}
+
+% ============================================================
+\begin{frame}{Comparison lens (what the joint story will emphasize)}
+\small
+\textbf{Same backbone:} CA on lattice + nutrient PDEs + coupling.
+
+\medskip
+\textbf{Different ``cell policy'' mechanisms:}
+\begin{itemize}
+  \item (2007) policy is \textbf{adaptive/evolvable}: $F(\cdot;\bm{w})$ with $\bm{w}$ mutating under selection.
+  \item (2023) policy is \textbf{rule-based with gradient sensing}: explicit chemotaxis via $\nabla g$.
+\end{itemize}
+
+\medskip
+\textbf{Microenvironment as driver:}
+\[
+\text{scarcity (oxygen)} \Rightarrow \text{selection over strategies}
+\qquad\text{vs}\qquad
+\text{gradient (glucose)} \Rightarrow \text{directed invasion}.
+\]
+
+\medskip
+\textbf{Next (later slides):} model specifics (states, boundary conditions), metrics (morphology/diversity/invasiveness), and a like-for-like comparison table.
+\end{frame}
+
+
+
+
+\section{Gerlee \& Anderson (2007)}
+
+% ============================================================
+% -------- Gerlee & Anderson (2007): model + implementation ----
+% ============================================================
+
+\begin{frame}{Model state and spatial discretization}
+\small
+\textbf{Lattice (CA layer).}
+Tissue is a 2D grid $\Lambda=\{(i,j)\}_{i,j=0}^{N-1}$ with spacing $d$ (one cell per site). \\
+Each site stores an automaton element:
+\[
+S_{i,j}(t)\in\{\emptyset,\ \text{alive cell},\ \text{necrotic cell}\}.
+\]
+
+\medskip
+\textbf{Cell attributes (per occupied site).}
+Each living cell carries (minimally):
+\begin{itemize}
+  \item age $a(t)$ (for proliferation check),
+  \item phenotype/decision mechanism: network parameters $\bm{w}$ (weights/thresholds),
+  \item (optional) flags: quiescent/motile/metabolic mode (in full model).
+\end{itemize}
+
+\medskip
+\textbf{Microenvironment fields (PDE layer on same grid).}
+Continuous concentrations sampled on the same lattice:
+\[
+c_{i,j}(t)\ (\text{oxygen}), \qquad g_{i,j}(t)\ (\text{glucose}), \qquad h_{i,j}(t)\ (\text{H}^+),
+\]
+with constant Dirichlet boundary conditions representing surrounding vasculature.
+\end{frame}
+
+\begin{frame}{Reaction--diffusion PDEs and coupling to CA}
+\small
+\textbf{Field dynamics (reaction--diffusion).}
+For $i\in\{c,g,h\}$:
+\[
+\partial_t i(\bm{x},t)=D_i\,\Delta i(\bm{x},t)\ \pm\ f_i(\bm{x},t).
+\]
+Consumption/production is cell-resolved:
+\[
+f_i(\bm{x},t)=
+\begin{cases}
+0, & \text{if site empty},\\
+r_i\,F(\bm{x}), & \text{if occupied},
+\end{cases}
+\]
+where $r_i$ are base rates and $F(\bm{x})$ is a modulated metabolic factor.
+
+\medskip
+\textbf{Discretization.}
+PDEs are discretized by standard 5-point finite differences on spacing $d$ and time step $\Delta t$:
+\[
+\Delta i \approx \frac{i_{i+1,j}+i_{i-1,j}+i_{i,j+1}+i_{i,j-1}-4i_{i,j}}{d^2}.
+\]
+
+\medskip
+\textbf{Interpretation.}
+Nutrients diffuse on the grid; each occupied lattice point contributes a localized sink/source term (via $f_i$).
+\end{frame}
+
+\begin{frame}{Cell decision rule: response network + mutation}
+\small
+\textbf{Cell ``policy'' as a feed-forward response network.}
+At site $(i,j)$ sample local inputs (e.g., neighbour count and local nutrients):
+\[
+\bm{x}_{i,j}(t)=\bm{x}\big(S_{\mathcal{N}(i,j)}(t),\ c_{i,j}(t),g_{i,j}(t),h_{i,j}(t)\big).
+\]
+Compute network response (abstractly):
+\[
+\bm{y}_{i,j}(t)=F\!\left(\bm{x}_{i,j}(t);\ \bm{w}_{i,j}\right),
+\]
+whose argmax (or thresholded outputs) selects action
+\[
+A\in\{\text{Proliferate (P)},\ \text{Quiesce (Q)},\ \text{Apoptose (A)}\}
+\quad (\text{and optionally Move/Metabolism in full model}).
+\]
+
+\medskip
+\textbf{Heritability and mutation at division.}
+When a cell divides, daughter inherits network parameters with perturbation:
+\[
+\bm{w}_{\text{child}}=\bm{w}_{\text{parent}}+\bm{\eta},
+\qquad \bm{\eta}\sim\mathcal{N}(\bm{0},\sigma^2 I)\ \text{on mutated entries}.
+\]
+\end{frame}
+
+\begin{frame}{Simulation loop and data-structure choices}
+\small
+\textbf{Core loop (per global time step).}
+\begin{enumerate}
+  \item Solve PDEs on the $N\times N$ grid (finite differences; Dirichlet boundaries).
+  \item Create a list of living cells and \textbf{update in random order}.
+  \item For each cell:
+  \begin{itemize}
+    \item sample $\bm{x}$ from local environment; compute action $A$ via network;
+    \item execute:
+      \begin{itemize}
+        \item \textbf{P:} if age $\ge A_p$ and empty neighbour exists, place daughter in a neighbouring site; else no division;
+        \item \textbf{Q:} mark quiescent state;
+        \item \textbf{A:} remove cell (site becomes empty).
+      \end{itemize}
+    \item \textbf{Necrosis:} starvation death leaves an immobile necrotic occupant (site remains blocked).
+    \item (optional) \textbf{Movement:} if enabled and not divided, attempt random move to empty neighbour.
+  \end{itemize}
+\end{enumerate}
+
+\medskip
+\textbf{Implementation view (minimal).}
+Two coupled arrays:
+\[
+\texttt{gridState}[i,j]\ \ (\text{empty/alive/necrotic}) \qquad
+\texttt{C}[i,j]\ \ (\text{oxygen field})
+\]
+(+ \texttt{G}, \texttt{H} in full model), and a per-cell struct storing $(a,\bm{w},\text{flags})$.
+\end{frame}
+
+% ============================================================
+% ---------------- Gerlee & Anderson (2007): RESULTS -----------
+% ============================================================
+
+\begin{frame}{Results: morphology vs oxygen (hypoxia)}
+\small
+\textbf{Control parameter.} Tissue background oxygen concentration $c_0$ (or equivalently base oxygen consumption).
+
+\medskip
+\textbf{Emergent morphologies (qualitative).}
+\begin{itemize}
+  \item \textbf{Low oxygen (hypoxic), e.g. $c_0=10$:} diffusion-limited growth $\Rightarrow$ \textbf{fingered / branched} tumour boundary (DLA-like).
+  \item \textbf{Higher oxygen, e.g. $c_0=2.5$ and above:} growth becomes \textbf{more regular / round}, with weaker fingering.
+\end{itemize}
+
+\medskip
+\textbf{Mechanistic interpretation in the model.}
+Local oxygen drop across the boundary makes proliferation a ``race'' towards higher $c$:
+\[
+\text{division at boundary} \ \Rightarrow\ \text{local sink} \ \Rightarrow\ \text{neighbour disadvantage} \ \Rightarrow\ \text{tip growth}.
+\]
+
+\medskip
+\textbf{Onset of cell death.}
+\begin{itemize}
+  \item Hypoxic case: cell death appears early ($t\approx 10$, $\sim$7 days).
+  \item Higher oxygen: hypoxic core appears later ($t\approx 35$, $\sim$23 days).
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Results: growth dynamics and viable rim structure}
+\small
+\textbf{Tumour composition over time.}
+After cell death begins, the tumour organizes into:
+\begin{itemize}
+  \item necrotic/dead core (resource-deprived),
+  \item \textbf{thin rim} of viable cells near boundary where $c(\bm{x},t)$ remains sufficient.
+\end{itemize}
+
+\medskip
+\textbf{Growth curves (qualitative).}
+\begin{itemize}
+  \item Hypoxic case ($c_0=10$): after early death, \textbf{approximately linear} increase in total cell count; proliferating/quiescent counts become roughly steady (limited to boundary tips).
+  \item Higher oxygen: tumour grows larger before core death; then continues with dead-core + viable-rim dynamics.
+\end{itemize}
+
+\medskip
+\textbf{Interpretation:} oxygen availability sets an effective ``active perimeter'' that limits net growth once diffusion becomes limiting.
+\end{frame}
+
+\begin{frame}{Results: population diversity (Shannon index)}
+\small
+\textbf{Metric.} Population diversity tracked via Shannon index
+\[
+H(t) = -\sum_{k} p_k(t)\,\log p_k(t),
+\]
+with $p_k$ the fraction of clone $k$.
+
+\medskip
+\textbf{Time evolution differs by oxygen level.}
+\begin{itemize}
+  \item \textbf{Low oxygen ($c_0=10$):} $H$ rises rapidly to $\approx 0.9$ around $t\approx 30$ ($\sim$20 days), then slowly decreases to $\approx 0.8$ by $t\approx 65$ days.
+  \item \textbf{Higher oxygen:} $H$ increases more slowly; stays low ($\approx 0.2$) while a quiescent core persists ($t\lesssim 40$), then increases after death onset and approaches $\approx 0.8$ by the end.
+\end{itemize}
+
+\medskip
+\textbf{Model explanation.}
+Fingered morphology $\Rightarrow$ spatially separated ``tips'' $\Rightarrow$ quasi-independent evolution $\Rightarrow$ higher early diversity; round growth $\Rightarrow$ stronger competition $\Rightarrow$ slower diversity increase.
+\end{frame}
+
+\begin{frame}{Results: evolved phenotypes under hypoxia (aggressiveness)}
+\small
+\textbf{Phenotype proxy.} Average response probabilities of the evolved networks (Table-level summary):
+\[
+\bar{\bm{r}} = (\bar r_P,\bar r_Q,\bar r_A), \quad \text{plus consumption multiplier } \bar \gamma.
+\]
+
+\medskip
+\textbf{Reported shift (high vs low oxygen).}
+\begin{itemize}
+  \item Under \textbf{normoxic/high $c_0$} conditions: dominant clones remain close to ancestral response (small changes).
+  \item Under \textbf{hypoxia/low $c_0$} (e.g. $c_0=10$): clones evolve toward
+  \[
+  \bar r_P \uparrow,\qquad \bar r_Q \downarrow,\qquad \bar r_A \downarrow,
+  \]
+  plus increased consumption / shorter effective cell cycle (more ``aggressive'' strategy).
+\end{itemize}
+
+\medskip
+\textbf{Interpretation:} harsher microenvironment $\Rightarrow$ stronger selection pressure $\Rightarrow$ survival of fast-cycling, low-apoptosis phenotypes.
+\end{frame}
+
+
+
+
+\section{Gerlee \& Anderson (2007) - extended model}
+
+% ================= GA2007 extended model: WHAT CHANGES (2 slides) =================
+
+\begin{frame}{GA2007 --- Extended model: added fields and network I/O}
+\small
+\textbf{Motivation.} Include \emph{glycolytic phenotype} and \emph{tumour acidity} by adding glucose and hydrogen ions.
+
+\medskip
+\textbf{Input vector (extended).}
+\[
+\bm{x}(\tilde{\bm{x}},t)=\big(n(\tilde{\bm{x}},t),\ c(\tilde{\bm{x}},t),\ g(\tilde{\bm{x}},t),\ h(\tilde{\bm{x}},t)\big),
+\]
+where $n$ is neighbour count, $c$ oxygen, $g$ glucose, $h$ hydrogen ion concentration.
+
+\medskip
+\textbf{Output layer (extended).}
+Besides life-cycle nodes (Proliferation/Quiescence/Apoptosis), the network includes:
+\begin{itemize}
+  \item \textbf{Metabolic pathway node:} selects aerobic vs anaerobic metabolism,
+  \item \textbf{Movement node:} enables movement if sufficiently large.
+\end{itemize}
+
+\medskip
+\textbf{Continuous layer.}
+Add PDE fields for glucose $g(\bm{x},t)$ and hydrogen ions $h(\bm{x},t)$ to the oxygen field $c(\bm{x},t)$.
+\end{frame}
+
+\begin{frame}{GA2007 --- Extended model: metabolism coupling (rates + modulation)}
+\small
+\textbf{Metabolic switch.}
+Network decides aerobic vs anaerobic (via sign/threshold of metabolic response).
+
+\medskip
+\textbf{Base rates (pathway-dependent).}
+\begin{itemize}
+  \item Aerobic: consumes oxygen and glucose with base rates $(r_c,\ r_g^{a})$.
+  \item Anaerobic: consumes \emph{more} glucose and \emph{no} oxygen; produces hydrogen ions with rate $r_h$.
+\end{itemize}
+
+\medskip
+\textbf{Response--metabolism modulation.}
+Define a target response $T_r$ and a modulation function (paper Eq.\,(1)):
+\[
+F(R)=\max\big(k(R-T_r)+1,\ 0.25\big),
+\]
+where $R$ is the life-cycle response magnitude (typically $R=\max\{P,Q\}$).
+
+\medskip
+\textbf{Coupling idea.}
+Local consumption/production terms are scaled by $F(R)$:
+\[
+\text{rates} \ \mapsto\ F(R)\times \text{(base rates)}\quad \Rightarrow\quad \text{cell-specific metabolism}.
+\]
+\end{frame}
+
+% ================= GA2007 extended model: SIMULATION (1 slide) =================
+
+\begin{frame}{GA2007 --- Simulation: what changes in the full (extended) system}
+\small
+\textbf{Minimal subsystem used first.}
+To simplify analysis, the paper initially removes:
+\begin{itemize}
+  \item movement,
+  \item anaerobic metabolism choice,
+  \item glucose and hydrogen-ion fields,
+\end{itemize}
+and studies oxygen-driven growth/evolution only.
+
+\medskip
+\textbf{Full extended loop (conceptually).}
+Compared to the minimal loop, each global step additionally requires:
+\begin{enumerate}
+  \item solve \textbf{three} coupled reaction--diffusion fields $(c,g,h)$ on the grid;
+  \item per-cell: evaluate network outputs for (i) life-cycle and (ii) metabolism and (iii) movement;
+  \item update local sink/source terms using pathway-dependent rates and modulation $F(R)$.
+\end{enumerate}
+
+\medskip
+\textbf{Extra state carried by each cell.}
+Metabolic mode (aerobic/anaerobic) and (optionally) movement-eligibility flag.
+\end{frame}
+
+% ================= GA2007 extended model: RESULTS/IMPLICATIONS (1--2 slides) =================
+
+\begin{frame}{GA2007 --- Extended model: what is (and is not) shown in results}
+\small
+\textbf{Scope of reported simulations.}
+The main simulation results in the paper are obtained with the \textbf{minimal} oxygen-only subsystem (no movement, no $(g,h)$ fields), to isolate the effect of oxygen background $c_0$.
+
+\medskip
+\textbf{Role of the extended model in the paper.}
+The extended $(c,g,h)$ + metabolism/movement machinery is introduced to:
+\begin{itemize}
+  \item represent \textbf{glycolytic shift} (aerobic $\leftrightarrow$ anaerobic) and its cost in glucose uptake,
+  \item represent \textbf{acidification} of the microenvironment via $H^+$ production,
+  \item allow future experiments where $g$ and $h$ also drive selection via their inclusion in $\bm{x}$.
+\end{itemize}
+
+\medskip
+\textbf{Take-away for your talk.}
+You can present the extended model as a principled generalisation of the same hybrid CA/PDE scaffold, even if the paper’s key plots focus on the minimal subsystem.
+\end{frame}
+
+\begin{frame}{GA2007 --- Metabolism coupling: effect on evolutionary trade-offs (from discussion)}
+\small
+\textbf{Key mechanism introduced by modulation $F(R)$.}
+Life-cycle response magnitude $R$ simultaneously impacts:
+\begin{itemize}
+  \item \textbf{proliferation potential} (via network outputs),
+  \item \textbf{metabolic rate} (via $F(R)$ scaling of consumption/production).
+\end{itemize}
+
+\medskip
+\textbf{Implication reported/discussed for hypoxic regimes.}
+Under strong oxygen limitation, selection favours:
+\[
+\text{higher proliferation potential / faster cell cycle}
+\quad \text{even if it increases consumption,}
+\]
+because boundary competition makes rapid division a dominant advantage.
+
+\medskip
+\textbf{Interpretation.}
+The model couples \emph{fitness} to a trade-off:
+\[
+\text{faster cycling} \;\longleftrightarrow\; \text{higher metabolic load},
+\]
+so scarcity can indirectly shape both phenotype and resource usage through the same network.
+\end{frame}
+
+
+
+
+
+\section{Messina et al. (2023)}
+
+% ============================================================
+% -------- Messina et al. (2023): model + implementation --------
+% ============================================================
+
+\begin{frame}{Domain, layers, and state variables}
+\small
+\textbf{Two-layer lattice.}
+Square domain $2\,\mathrm{mm}\times 2\,\mathrm{mm}$ discretized into $100\times 100$ lattice points (LPs), $\Delta=20\,\mu$m.
+
+\medskip
+\textbf{Cellular layer (CA).}
+Each LP stores occupancy and phenotype:
+\[
+S_{x,y}(t)\in\{\emptyset,\ \text{active},\ \text{starved},\ \text{necrotic}\},
+\]
+plus an \textbf{adhesion state} (attached vs detached) for motility rules.
+
+\medskip
+\textbf{Glucose layer (PDE field).}
+Glucose concentration $C(x,t)$ sampled on each LP:
+\[
+C_{x,y}(t) \equiv C(x_{x,y},t).
+\]
+
+\medskip
+\textbf{Initial/boundary conditions.}
+\begin{itemize}
+  \item isotropic: $C(\cdot,0)=5.5$ mM and boundary fixed at 5.5 mM;
+  \item gradient: boundary fixed at 8 mM (left) and 3 mM (right), with initial linear profile (mean 5.5 mM).
+\end{itemize}
+Initial spheroid: radius $\approx 50\,\mu$m (21 cells) at domain center; simulated time $\approx 48$ h.
+\end{frame}
+
+\begin{frame}{Glucose PDE, numerical method, and uptake term}
+\small
+\textbf{Reaction--diffusion.}
+\[
+\partial_t C = D\,\Delta C - k(x,t),
+\]
+with disparate time scales (diffusion seconds vs division hours) $\Rightarrow$ \textbf{adiabatic approximation}:
+\[
+0 = D\,\Delta C - k(x,t)\qquad \text{(pseudo-stationary)}.
+\]
+
+\medskip
+\textbf{Finite differences on LP grid.}
+Discretize Laplacian with 5-point stencil on spacing $\Delta$.
+
+\medskip
+\textbf{Solver.}
+Pseudo-stationary field solved each CA update using \textbf{SOR (simultaneous over-relaxation)} with \textbf{Chebyshev acceleration}.
+
+\medskip
+\textbf{Consumption (Michaelis--Menten, cell-localized).}
+\[
+k(x,t)= I(x,t)\,\frac{k_{\max}\,C(x,t)}{C(x,t)+K_m},
+\]
+where $I(x,t)\in\{0,1\}$ indicates LPs containing an \emph{active} or \emph{starved} cell (implemented via indicator/Dirac-delta representation on the grid).
+\end{frame}
+
+\begin{frame}{CA rules: phenotype switching, migration, proliferation, death}
+\small
+\textbf{Phenotype thresholds.}
+Two glucose thresholds $C_{\text{starv}}>C_{\text{nec}}$:
+\[
+\begin{cases}
+\text{active} & C_{x,y}>C_{\text{starv}},\\
+\text{starved} & C_{\text{nec}}<C_{x,y}<C_{\text{starv}},\\
+\text{necrotic} & C_{x,y}<C_{\text{nec}} \quad (\text{irreversible}).
+\end{cases}
+\]
+
+\medskip
+\textbf{Event clocks.}
+\begin{itemize}
+  \item migration every $T_m$,
+  \item duplication every $T_d$,
+  \item apoptosis if starved longer than $T_{\text{apop}}$ (LP becomes empty).
+\end{itemize}
+
+\medskip
+\textbf{Migration (8-neighbourhood + biased random walk).}
+A cell is either \emph{attached} or \emph{detached}. For an attached cell, the probability to detach is
+\[
+P_{\text{adh}}=
+\frac{N^{\text{att}}_{\text{cell}}}{K+N^{\text{att}}_{\text{cell}}},
+\qquad
+P_{\text{adh}}=0\ \text{if detached},
+\]
+where $N^{\text{att}}_{\text{cell}}$ is the number of attached neighbouring cells and $K$ controls adhesion strength.
+\end{frame}
+
+\begin{frame}{Migration direction choice and proliferation rules}
+\small
+\medskip
+Direction choice considers the 9 candidate positions (8 neighbours + stay). Let $C_5$ be glucose at the current site and $C_i$ at candidate position $i$.
+Define the relative change
+\[
+A_i=\frac{C_i-C_5}{C_5},
+\qquad
+S_i=e^{\alpha A_i},
+\qquad
+s_i=\frac{S_i}{\sum_{j=1}^{9} S_j},
+\]
+with chemotactic sensitivity $\alpha$. The move direction is sampled according to $\{s_i\}_{i=1}^9$ (via partition of $[0,1]$ into intervals).
+
+\medskip
+\textbf{Proliferation.}
+At each $T_d$, an \emph{active attached} cell places a daughter in a random empty neighbour; if none exists, a \textbf{pushing} rule shifts cells along a path toward the cluster edge to create space.
+\end{frame}
+
+\begin{frame}{Simulation process and concrete data structures}
+\small
+\textbf{Per-step workflow.}
+\begin{enumerate}
+  \item Given current cellular layer, compute consumption mask $I(x,t)$.
+  \item Solve pseudo-stationary glucose field $C_{x,y}$ (SOR + Chebyshev).
+  \item Update each cell using local $C_{x,y}$:
+  \begin{itemize}
+    \item phenotype transitions (active/starved/necrotic),
+    \item migration attempts at multiples of $T_m$ (adhesion + chemotaxis),
+    \item proliferation attempts at multiples of $T_d$ (placement/pushing),
+    \item apoptosis if starved duration $>T_{\text{apop}}$.
+  \end{itemize}
+\end{enumerate}
+
+\medskip
+\textbf{Minimal implementation view.}
+\begin{itemize}
+  \item \texttt{cellState[100][100]}: enum \{empty, active, starved, necrotic\}
+  \item \texttt{attachFlag[100][100]}: bool (attached/detached)
+  \item \texttt{timerM[100][100]}, \texttt{timerD[100][100]}, \texttt{starvTime[100][100]}
+  \item \texttt{C[100][100]}: glucose field (float), updated by SOR iterations
+  \item Random-number stream for stochastic events (migration direction, adhesion, etc.)
+\end{itemize}
+
+\medskip
+\textbf{Replicates (stochasticity).}
+Same parameter set is simulated multiple times and averaged (paper uses $n=40$ replicates after convergence analysis).
+\end{frame}
+
+% ============================================================
+% ---------------- Messina et al. (2023): RESULTS --------------
+% ============================================================
+
+\begin{frame}{Results: isotropic vs gradient glucose fields}
+\small
+\textbf{Two experimental in silico settings.}
+\begin{itemize}
+  \item \textbf{Isotropic glucose:} uniform boundary supply $\Rightarrow$ no directional cue.
+  \item \textbf{Gradient glucose:} boundary values impose $\nabla C \neq 0$ across domain $\Rightarrow$ directional cue for chemotaxis.
+\end{itemize}
+
+\medskip
+\textbf{Observed qualitative behaviours.}
+\begin{itemize}
+  \item In isotropic case: outward migration is not directionally biased; invasion patterns remain approximately symmetric.
+  \item In gradient case: cells adapt migration and exhibit \textbf{anisotropic invasion} aligned with the glucose gradient (chemotaxis-driven).
+\end{itemize}
+
+\medskip
+\textbf{Key message:} external gradient is not required to grow, but it is a strong driver for \emph{directed} invasion.
+\end{frame}
+
+\begin{frame}{Results: measured outputs (growth vs invasiveness)}
+\small
+\textbf{Growth observables.}
+The paper tracks tumour growth via:
+\begin{itemize}
+  \item total number of cells $N(t)$,
+  \item number of cells adhered to the core $N_a(t)$ (core size/area proxy).
+\end{itemize}
+
+\medskip
+\textbf{Invasiveness observable.}
+Let $N_d(t)$ be the number of detached/migrated cells. Define an invasiveness ratio (as in the paper):
+\[
+I(t) = \frac{N_d(t)}{N_a(t)}.
+\]
+
+\medskip
+\textbf{Qualitative interpretation.}
+\begin{itemize}
+  \item Large $N_a$ with small $N_d$: compact growth (low invasion).
+  \item Moderate $N_a$ with large $N_d$: dissolving core / strong invasion.
+\end{itemize}
+
+\medskip
+This separation (core vs detached) is used throughout the sensitivity analysis to disentangle growth and invasion.
+\end{frame}
+
+\begin{frame}{Results: global sensitivity analysis (parameter ranking)}
+\small
+\textbf{Parameters varied.}
+\[
+\alpha\ (\text{chemotactic sensitivity}),\quad
+K\ (\text{adhesion}),\quad
+T_d\ (\text{doubling time}),\quad
+T_m\ (\text{migration interval}).
+\]
+
+\medskip
+\textbf{Global sensitivity (main findings).}
+\begin{itemize}
+  \item \textbf{Isotropic field:} effect of $\alpha$ is \textbf{negligible}.
+  \item \textbf{Gradient field:} $\alpha$ becomes \textbf{fundamental} in governing invasion (direction and magnitude).
+  \item $T_d$ and $K$ are \textbf{critical} for core evolution and detachment in both fields; $T_m$ has a similar but weaker influence.
+\end{itemize}
+
+\medskip
+\textbf{High-level conclusion.}
+\[
+\text{growth} \approx f(T_d,K)\qquad \text{whereas}\qquad \text{invasion under gradients} \approx f(\alpha).
+\]
+\end{frame}
+
+\begin{frame}{Results: local sensitivity / regimes and ``optimal adhesion''}
+\small
+\textbf{Local sensitivity highlights.}
+\begin{itemize}
+  \item $\alpha=0$ $\Rightarrow$ gradient insensitivity (no directed migration).
+  \item Increasing $\alpha$ $\Rightarrow$ stronger alignment with positive gradient (chemotactic response).
+\end{itemize}
+
+\medskip
+\textbf{Role of adhesion $K$: regime transition.}
+There is a threshold-like behaviour around $K \approx 0.5$:
+\begin{itemize}
+  \item smaller $K$: migration flux can dissolve the core over time;
+  \item larger $K$: adhesion promotes core integrity and supports proliferation-dominated growth.
+\end{itemize}
+
+\medskip
+\textbf{Perturbation effects (qualitative).}
+\begin{itemize}
+  \item decreasing $T_d$ (faster division) promotes rapid growth (larger $N$, larger $N_a$);
+  \item changing $T_m$ modulates invasion/growth rates (more frequent migration accelerates dynamics).
+\end{itemize}
+
+\medskip
+\textbf{Reported ``optimal'' adhesion insight.}
+An intermediate $K$ yields many migrating cells while maintaining approximately constant core size (trade-off growth vs detachment).
+\end{frame}
+
+
+
+\section{Comparison}
+
+% ============================================================
+% --------------------- MODEL COMPARISON ---------------------
+% ============================================================
+
+\begin{frame}{Model comparison (I): common backbone and state variables}
+\small
+\textbf{Common backbone (hybrid CA/PDE).}
+\[
+\boxed{
+\text{lattice CA for cells} \;+\; \text{reaction--diffusion PDE for nutrients} \;+\; \text{bidirectional coupling}
+}
+\]
+
+\medskip
+\textbf{Discrete layer.}
+\begin{itemize}
+  \item both: 2D lattice; one cell per site; neighbourhood-based constraints.
+  \item Gerlee--Anderson (2007): cell carries \emph{internal parameters} $\bm{w}$ (response network).
+  \item Messina (2023): cell carries \emph{phenotype/attachment flags} + event timers (rule-based).
+\end{itemize}
+
+\medskip
+\textbf{Continuous layer.}
+\begin{itemize}
+  \item both: nutrient field(s) on same grid; boundary conditions emulate external supply.
+  \item GA2007: oxygen (and optionally glucose, $\mathrm{H}^+$) as microenvironment drivers.
+  \item M2023: glucose-only driver with pseudo-stationary solve per CA step.
+\end{itemize}
+
+\medskip
+\textbf{Coupling.}
+Cells read $c(x_i,t)$ (or $C_{x,y}$) to choose actions; occupancy generates local sinks/sources in PDEs.
+\end{frame}
+
+\begin{frame}{Model comparison (II): decision mechanism and key control parameters}
+\small
+\textbf{Cell decision mechanism.}
+\begin{itemize}
+  \item GA2007: \emph{evolvable policy} $\bm{y}=F(\bm{x};\bm{w})$, heritable with mutation
+  \[
+  \bm{w}_{\text{child}}=\bm{w}_{\text{parent}}+\bm{\eta}.
+  \]
+  \item M2023: \emph{rule-based policy} with explicit chemotaxis
+  \[
+  S_i=e^{\alpha A_i},\quad A_i=\frac{C_i-C_5}{C_5},\quad s_i=\frac{S_i}{\sum_j S_j},
+  \]
+  and adhesion-controlled detachment
+  \[
+  P_{\text{adh}}=\frac{N^{\text{att}}_{\text{cell}}}{K+N^{\text{att}}_{\text{cell}}}.
+  \]
+\end{itemize}
+
+\medskip
+\textbf{Dominant control knobs.}
+\begin{itemize}
+  \item GA2007: oxygen availability ($c_0$) sets selection pressure and morphology.
+  \item M2023: $\alpha$ (chemotaxis), $K$ (adhesion), $T_d$ (doubling) separate invasion vs growth regimes.
+\end{itemize}
+
+\medskip
+\textbf{Interpretation.}
+Both encode microenvironment $\rightarrow$ behaviour, but via \textbf{evolution} (GA2007) vs \textbf{explicit gradient sensing} (M2023).
+\end{frame}
+
+% ============================================================
+% ------------------- RESULTS COMPARISON ---------------------
+% ============================================================
+
+\begin{frame}{Results comparison (I): common qualitative patterns}
+\small
+\textbf{Shared qualitative outcomes.}
+\begin{itemize}
+  \item \textbf{Microenvironment shapes morphology:}
+  scarcity/gradients induce non-trivial tumour shapes (non-spherical boundaries, protrusions).
+  \item \textbf{Spatial self-organization:}
+  viable/active regions concentrate where nutrient is higher (typically near boundary or along gradient).
+  \item \textbf{Separation of ``core'' vs ``front'':}
+  \begin{itemize}
+    \item GA2007: viable proliferative rim/tips vs deprived core.
+    \item M2023: adhered core vs detached migrating population (tracked by $N^{\text{core}}_{\text{cell}}, N^{\text{mig}}_{\text{cell}}$).
+  \end{itemize}
+\end{itemize}
+
+\medskip
+\textbf{Common modelling message.}
+Coupled discrete--continuous dynamics is sufficient to generate \textbf{emergent macroscopic phenotypes} from local rules.
+\end{frame}
+
+\begin{frame}{Results comparison (II): key differences in what ``emerges'' and what is measured}
+\small
+\textbf{Main emergent phenomenon.}
+\begin{itemize}
+  \item GA2007: \textbf{eco--evolutionary selection} under hypoxia
+  \[
+  H(t)=-\sum_k p_k\log p_k \quad \text{(clonal diversity)} \quad \text{and evolved response shifts}.
+  \]
+  \item M2023: \textbf{directed invasion} under glucose gradients
+  \[
+  \phi=\frac{N^{\text{core}}_{\text{cell}}}{N^{\text{mig}}_{\text{cell}}}\quad (\downarrow\ \phi \Rightarrow \uparrow\ \text{invasiveness}),
+  \]
+  plus anisotropy counts $(N_N,N_S,N_E,N_W)$ to quantify directional bias.
+\end{itemize}
+
+\medskip
+\textbf{Parameter-to-outcome logic.}
+\begin{itemize}
+  \item GA2007: varying $c_0$ changes \emph{selection pressure} $\Rightarrow$ phenotype distribution + morphology.
+  \item M2023: varying $(\alpha,K,T_d,T_m)$ yields a \emph{regime map} separating growth vs invasiveness (via sensitivity analysis).
+\end{itemize}
+\end{frame}
+
+
+
+
+\section{Conclusions}
+
+% ======================== strengths/limitations =========================
+
+\begin{frame}{Conclusions --- Strengths and limitations (model-level)}
+\small
+\textbf{Gerlee \& Anderson (2007)}
+\begin{itemize}
+  \item \textbf{Strengths:} explicit eco--evolutionary mechanism:
+  heritable, mutable cell policy $\bm{y}=F(\bm{x};\bm{w})$ with
+  $\bm{w}_{\text{child}}=\bm{w}_{\text{parent}}+\bm{\eta}$; supports clonal diversity tracking (e.g., $H(t)$).
+  \item \textbf{Limitations:} policy is flexible but less interpretable / harder to calibrate; directed gradient-sensing (chemotaxis) is not the primary driver (needs explicit addition for invasion-in-gradient questions).
+\end{itemize}
+
+\medskip
+\textbf{Messina et al. (2023)}
+\begin{itemize}
+  \item \textbf{Strengths:} interpretable rule-based CA with explicit chemotaxis in glucose gradients and operational invasion metrics
+  (core vs migrating populations, $\phi$); systematic sensitivity analysis links parameters to outcomes.
+  \item \textbf{Limitations:} no endogenous clonal evolution (rules/parameters do not mutate); heterogeneity is mainly parametric, not evolutionary.
+\end{itemize}
+\end{frame}
+
+% ======================== Proposed unification ==========================
+
+\begin{frame}{Proposed unification (I): unified hybrid CA/PDE with evolvable policies}
+\small
+\textbf{Goal:} retain the common hybrid CA/PDE scaffold, add (i) evolvable decision rules (GA2007) and (ii) explicit gradient-driven migration (M2023).
+
+\medskip
+\textbf{State.}
+\[
+S_i(t)\in\{\emptyset,\text{active},\text{starved},\text{necrotic}\},\quad
+\text{flags: attached/detached},\quad
+\bm{w}_i\ \text{(cell policy parameters)}.
+\]
+
+\medskip
+\textbf{Microenvironment fields (example: oxygen + glucose).}
+\[
+\partial_t c = D_c \Delta c - \rho_c(S)\,c,
+\qquad
+\partial_t g = D_g \Delta g - \rho_g(S)\,\frac{g}{g+K_m},
+\]
+with boundary conditions setting (i) baseline oxygen level and (ii) optional glucose gradient.
+
+\medskip
+\textbf{Evolvable cell policy (GA2007-style).}
+\[
+\bm{x}_i(t)=\big[c_i,\ g_i,\ \nabla g_i,\ n_{\text{occ}},\ n_{\text{att}},\ldots\big],
+\qquad
+\bm{y}_i(t)=F\!\left(\bm{x}_i(t);\bm{w}_i\right),
+\]
+where $\bm{y}_i$ selects $A\in\{\text{Prolif},\text{Quiesce},\text{Die},\text{Move}\}$.
+
+\medskip
+\textbf{Inheritance.}
+On division:
+\[
+\bm{w}_{\text{child}}=\bm{w}_{\text{parent}}+\bm{\eta}.
+\]
+\end{frame}
+
+\begin{frame}{Proposed unification (II): chemotactic move operator + measurable outputs}
+\small
+\textbf{Chemotactic move operator (M2023-style).}
+If $A=\text{Move}$, evaluate the 9 candidate positions (8 neighbours + stay).
+Let $g_5$ be glucose at the current site and $g_k$ at candidate $k$:
+\[
+A_k=\frac{g_k-g_5}{g_5},\qquad
+S_k=e^{\alpha_i A_k},\qquad
+p_k=\frac{S_k}{\sum_j S_j}.
+\]
+Sample move direction with probabilities $\{p_k\}$, subject to occupancy constraints.
+
+\medskip
+\textbf{Adhesion-controlled detachment (M2023-style).}
+For attached cells:
+\[
+P_{\text{adh}}=\frac{N^{\text{att}}_{\text{cell}}}{K+N^{\text{att}}_{\text{cell}}}.
+\]
+Detachment state affects motility and cluster integrity.
+
+\medskip
+\textbf{What can be tested/quantified in the unified model.}
+\begin{itemize}
+  \item \textbf{Evolution:} clonal diversity $H(t)=-\sum_k p_k\log p_k$, distribution of $\bm{w}$ (and derived traits such as $\alpha_i$).
+  \item \textbf{Invasion:} core vs migrating populations and invasiveness metric
+  \[
+  \phi=\frac{N^{\text{core}}_{\text{cell}}}{N^{\text{mig}}_{\text{cell}}}\quad (\downarrow\phi \Rightarrow \uparrow\text{ invasion}).
+  \]
+\end{itemize}
+
+\medskip
+\textbf{New question enabled:} does a stable nutrient gradient select for higher chemotactic sensitivity $\alpha$ vs higher proliferation, under oxygen-limited selection pressure?
+\end{frame}
+
+
+
+% ============================================================
+% ----------------------- BIBLIOGRAPHY -----------------------
+% ============================================================
+\begin{frame}{Bibliography}
+\small
+\begin{itemize}
+  \item Gerlee, P., \& Anderson, A. R. A. (2007). \emph{An evolutionary hybrid cellular automaton model of solid tumour growth}. \emph{J. Theor. Biol.} (paper provided).
+  \item Messina, A. et al. (2023). \emph{Hybrid Cellular Automata Modeling Reveals the Effects of Glucose Gradients on Tumour Spheroid Growth}. (Open access) \texttt{https://pmc.ncbi.nlm.nih.gov/articles/PMC10705082/}
+\end{itemize}
+\end{frame}
+
+\end{document}
