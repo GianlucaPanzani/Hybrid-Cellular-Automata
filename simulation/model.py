@@ -12,21 +12,12 @@ ACT_PROLIF = np.uint8(0)
 ACT_QUIESC = np.uint8(1)
 
 
-# ========================================
-# ========== Parameters class ============
-# ========================================
-
 @dataclass
 class Params:
     """Simulation parameters for GA2007 minimal (oxygen-only) system."""
     # Lattice
     N: int = 200
     seed_radius: int = 6
-
-    # Feedforward network parameters
-    H: int = 6   # hidden units (paper uses a small hidden layer; tune as you like)
-    I: int = 2   # inputs: [c, n_norm]
-    O: int = 3   # outputs: [P, Q, A]
 
     # Oxygen field (dimensionless)
     c_boundary: float = 1.0
@@ -57,10 +48,6 @@ class Params:
     steps: int = 150
     rng_seed: int = 0
 
-
-# ========================================
-# ========== Utility Functions ===========
-# ========================================
 
 def moore_neighbors_count(state: np.ndarray) -> np.ndarray:
     """Compute Moore-neighborhood alive+necrotic neighbor count for each site.
@@ -116,20 +103,39 @@ def oxygen_step_explicit(c: np.ndarray, alpha: np.ndarray, p: Params) -> np.ndar
     return c_new
 
 
-def init_mlp_weights(p: Params, rng: np.random.Generator):
-    """Initialize MLP weights (1 hidden layer) with small random values.
-    Params: p, rng.
-    Returns: W1,b1,W2,b2.
+def init_linear_policy_weights(p: Params) -> Tuple[np.ndarray, np.ndarray]:
+    """Initialize a linear policy producing Fig.5-like behaviour before mutations.
+    Params: p.
+    Returns: W (3,2), b (3).
     """
-    H, I, O = p.H, p.I, p.O
-    # Xavier-like scale
-    s1 = np.sqrt(2.0 / (I + H))
-    s2 = np.sqrt(2.0 / (H + O))
-    W1 = rng.normal(0.0, s1, size=(H, I)).astype(np.float32)
-    b1 = np.zeros((H,), dtype=np.float32)
-    W2 = rng.normal(0.0, s2, size=(O, H)).astype(np.float32)
-    b2 = np.zeros((O,), dtype=np.float32)
-    return W1, b1, W2, b2
+    # Inputs x = [c, n_norm], where n_norm = n_neigh / 8
+    # Scores:
+    # A: high when c < c_apop
+    # Q: high when c high and n > contact_inhib_n
+    # P: high when c high and n <= contact_inhib_n
+    k = 12.0
+    kc = 18.0
+
+    # weights over [c, n_norm]
+    W = np.zeros((3, 2), dtype=np.float32)
+    b = np.zeros((3,), dtype=np.float32)
+
+    # Apoptosis score: sA = -kc*(c - c_apop)  -> large when c < c_apop
+    W[2, 0] = -kc
+    b[2] = kc * p.c_apop
+
+    # Quiescence score: sQ = k*(n_norm - n0) + kc*(c - c_apop)
+    n0 = p.contact_inhib_n / 8.0
+    W[1, 1] = k
+    W[1, 0] = kc
+    b[1] = -k * n0 - kc * p.c_apop
+
+    # Proliferation score: sP = -k*(n_norm - n0) + kc*(c - c_apop)
+    W[0, 1] = -k
+    W[0, 0] = kc
+    b[0] = k * n0 - kc * p.c_apop
+
+    return W, b
 
 
 def policy_action_scores(W: np.ndarray, b: np.ndarray, c_val: float, n_neigh: int, p: Params) -> np.ndarray:
@@ -149,57 +155,22 @@ def sample_action(scores: np.ndarray) -> int:
     return int(np.argmax(scores))
 
 
-def mutate_mlp(W1, b1, W2, b2, p: Params, rng: np.random.Generator):
-    """Mutate MLP parameters entry-wise with prob p_mut_entry and Gaussian noise.
-    Params: W1,b1,W2,b2,p,rng.
-    Returns: W1m,b1m,W2m,b2m.
+def mutate_genotype(W: np.ndarray, b: np.ndarray, p: Params, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
+    """Mutate genotype entries with probability p_mut_entry and Gaussian noise.
+    Params: W (3,2), b (3), p, rng.
+    Returns: W_new, b_new.
     """
-    W1m, b1m, W2m, b2m = W1.copy(), b1.copy(), W2.copy(), b2.copy()
+    W_new = W.copy()
+    b_new = b.copy()
 
-    m = rng.random(W1m.shape) < p.p_mut_entry
-    W1m[m] += rng.normal(0.0, p.sigma_mut, size=m.sum()).astype(np.float32)
+    mask_W = rng.random(W_new.shape) < p.p_mut_entry
+    W_new[mask_W] += rng.normal(0.0, p.sigma_mut, size=mask_W.sum()).astype(np.float32)
 
-    m = rng.random(b1m.shape) < p.p_mut_entry
-    b1m[m] += rng.normal(0.0, p.sigma_mut, size=m.sum()).astype(np.float32)
+    mask_b = rng.random(b_new.shape) < p.p_mut_entry
+    b_new[mask_b] += rng.normal(0.0, p.sigma_mut, size=mask_b.sum()).astype(np.float32)
 
-    m = rng.random(W2m.shape) < p.p_mut_entry
-    W2m[m] += rng.normal(0.0, p.sigma_mut, size=m.sum()).astype(np.float32)
+    return W_new, b_new
 
-    m = rng.random(b2m.shape) < p.p_mut_entry
-    b2m[m] += rng.normal(0.0, p.sigma_mut, size=m.sum()).astype(np.float32)
-
-    return W1m, b1m, W2m, b2m
-
-def sigmoid(x: np.ndarray) -> np.ndarray:
-    """Sigmoid activation.
-    Params: x.
-    Returns: sigmoid(x).
-    """
-    return 1.0 / (1.0 + np.exp(-x))
-
-def mlp_scores(W1, b1, W2, b2, c_val: float, n_neigh: int):
-    """MLP forward pass returning output activations for (P,Q,A).
-    Params: W1,b1,W2,b2, c_val, n_neigh.
-    Returns: y (3,) float.
-    """
-    x = np.array([c_val, float(n_neigh) / 8.0], dtype=np.float32)
-    h = sigmoid(W1 @ x + b1)
-    y = sigmoid(W2 @ h + b2)
-    return y
-
-def choose_action(y: np.ndarray) -> int:
-    """Choose action as argmax output.
-    Params: y.
-    Returns: action index (0=P,1=Q,2=A).
-    """
-    return int(np.argmax(y))
-
-
-
-
-# ========================================
-# ============= Model class ==============
-# ========================================
 
 class SimulationModel:
     """Minimal GA2007 oxygen-only tumour model."""
@@ -222,19 +193,16 @@ class SimulationModel:
         self.c = np.full((N, N), p.c_boundary, dtype=np.float32)
         enforce_dirichlet_boundary(self.c, p.c_boundary)
 
-        # Genotype per site (valid if ALIVE): feedforward NN whith 1 hidden layer of H units
-        H, I, O = self.p.H, self.p.I, self.p.O
-        self.W1 = np.zeros((N, N, H, I), dtype=np.float32)
-        self.b1 = np.zeros((N, N, H), dtype=np.float32)
-        self.W2 = np.zeros((N, N, O, H), dtype=np.float32)
-        self.b2 = np.zeros((N, N, O), dtype=np.float32)
+        # Genotype per site (valid if ALIVE): linear W (3x2) + b(3)
+        self.W = np.zeros((N, N, 3, 2), dtype=np.float32)
+        self.b = np.zeros((N, N, 3), dtype=np.float32)
 
-        W1_0, b1_0, W2_0, b2_0 = init_mlp_weights(self.p, self.rng)
-        self._seed_tumour(W1_0, b1_0, W2_0, b2_0)
+        W0, b0 = init_linear_policy_weights(p)
+        self._seed_tumour(W0, b0)
 
-    def _seed_tumour(self, W1_0: np.ndarray, b1_0: np.ndarray, W2_0: np.ndarray, b2_0: np.ndarray) -> None:
+    def _seed_tumour(self, W0: np.ndarray, b0: np.ndarray) -> None:
         """Seed a circular cluster of initial cancer cells.
-        Params: W1_0, b1_0, W2_0, b2_0.
+        Params: W0, b0.
         Returns: None.
         """
         N = self.p.N
@@ -251,10 +219,8 @@ class SimulationModel:
                         1e-3,
                         float(self.rng.normal(self.p.Ap_base_hours, self.p.Ap_sigma_hours))
                     )
-                    self.W1[i, j] = W1_0
-                    self.b1[i, j] = b1_0
-                    self.W2[i, j] = W2_0
-                    self.b2[i, j] = b2_0
+                    self.W[i, j] = W0
+                    self.b[i, j] = b0
 
     def _uptake_alpha(self) -> np.ndarray:
         """Compute local oxygen uptake coefficient alpha(x,t).
@@ -293,17 +259,16 @@ class SimulationModel:
         return tuple(neigh)
     
     def _oxygen_demand(self) -> np.ndarray:
-        """Compute per-site oxygen demand (amount requested) in the current field timestep.
+        """Compute per-site oxygen demand (amount requested) in the current field time-step.
         Params: None.
         Returns: demand (N,N) float32.
         """
         demand = np.zeros_like(self.c, dtype=np.float32)
-        alive = self.state == ALIVE
-        prol  = alive & (self.activity == ACT_PROLIF)
-        quies = alive & (self.activity == ACT_QUIESC)
+        proliferation = (self.state == ALIVE) & (self.activity == ACT_PROLIF)
+        quiescience   = (self.state == ALIVE) & (self.activity == ACT_QUIESC)
 
-        demand[prol]  = self.p.rc * self.p.dt_field
-        demand[quies] = (self.p.rc / self.p.q_quiescent) * self.p.dt_field
+        demand[proliferation] = self.p.rc * self.p.dt_field
+        demand[quiescience]   = (self.p.rc / self.p.q_quiescent) * self.p.dt_field
         return demand
 
     def step(self) -> Dict[str, float]:
@@ -311,16 +276,16 @@ class SimulationModel:
         Params: None.
         Returns: summary dict.
         """
-        # 1) Starvation necrosis (paper-style): if demand > local availability -> necrotic
+        # 0) Starvation necrosis (paper-style): if demand > availability -> necrotic (site blocked)
         demand = self._oxygen_demand()
-        starving = (self.state == ALIVE) & (self.c < demand)
-        self.state[starving] = NECROTIC  # site remains occupied
+        nec_mask = (self.state == ALIVE) & (self.c < demand)
+        self.state[nec_mask] = NECROTIC
 
-        # 2) Update oxygen field using consumption of remaining ALIVE cells
-        alpha = self._uptake_alpha()     # this must ignore NECROTIC (already does)
+        # 1) Update oxygen field
+        alpha = self._uptake_alpha()
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
 
-        # 3) Update cells in random order
+        # 2) Update cells in random order
         n_neigh = moore_neighbors_count(self.state)
         coords = self._alive_indices_shuffled()
 
@@ -329,9 +294,9 @@ class SimulationModel:
                 continue
 
             c_ij = float(self.c[i, j])
-            y = mlp_scores(self.W1[i, j], self.b1[i, j], self.W2[i, j], self.b2[i, j],
-               c_ij, int(n_neigh[i, j]))
-            action = choose_action(y)
+
+            scores = policy_action_scores(self.W[i, j], self.b[i, j], c_ij, int(n_neigh[i, j]), self.p)
+            action = sample_action(scores)
 
             # A: apoptosis frees space
             if action == 2:
@@ -365,19 +330,16 @@ class SimulationModel:
                 1e-3, float(self.rng.normal(self.p.Ap_base_hours, self.p.Ap_sigma_hours))
             )
 
-            W1c, b1c, W2c, b2c = mutate_mlp(self.W1[i, j], self.b1[i, j], self.W2[i, j], self.b2[i, j],
-                               self.p, self.rng)
-            self.W1[ni, nj] = W1c
-            self.b1[ni, nj] = b1c
-            self.W2[ni, nj] = W2c
-            self.b2[ni, nj] = b2c
+            W_child, b_child = mutate_genotype(self.W[i, j], self.b[i, j], self.p, self.rng)
+            self.W[ni, nj] = W_child
+            self.b[ni, nj] = b_child
 
             self.age_hours[i, j] = 0.0
             self.prolif_age_hours[i, j] = max(
                 1e-3, float(self.rng.normal(self.p.Ap_base_hours, self.p.Ap_sigma_hours))
             )
 
-        # 4) Summary
+        # 3) Summary
         alive = int(np.sum(self.state == ALIVE))
         nec = int(np.sum(self.state == NECROTIC))
         empty = int(np.sum(self.state == EMPTY))
