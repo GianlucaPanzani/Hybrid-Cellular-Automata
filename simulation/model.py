@@ -1,6 +1,6 @@
 import numpy as np
 from dataclasses import dataclass
-from typing import Dict, Tuple, Optional
+from typing import Dict, Tuple
 
 # Cell states
 EMPTY = np.uint8(0)
@@ -97,48 +97,80 @@ def oxygen_step_explicit(c: np.ndarray, alpha: np.ndarray, p: Params) -> np.ndar
     return c_new
 
 
-def init_linear_policy_weights(p: Params) -> Tuple[np.ndarray, np.ndarray]:
-    """Initialize a linear policy producing Fig.5-like behaviour before mutations.
-    Params: p.
-    Returns: W (3,2), b (3).
+def transfer_sigmoid(x: np.ndarray) -> np.ndarray:
+    """Sigmoid transfer function from the paper: T(x) = 1 / (1 + exp(-2x)).
+    Params: x array.
+    Returns: transformed array.
     """
-    # Inputs x = [c, n_norm], where n_norm = n_neigh / 8
-    # Scores of the output nodes (A,Q,P):
-    # A: high when c < c_apoptosis_threshold
-    # Q: high when c high and n > c_quiescence_threshold
-    # P: high when c high and n <= c_quiescence_threshold
-    k = 12.0
-    kc = 18.0
+    return 1.0 / (1.0 + np.exp(-2.0 * x))
 
-    # weights over [c, n_norm]
-    W = np.zeros((3, 2), dtype=np.float32)
-    b = np.zeros((3,), dtype=np.float32)
 
-    # Apoptosis score: sA = -kc*(c - c_apoptosis_threshold)  -> large when c < c_apoptosis_threshold
-    W[2,0] = -kc
-    b[2] = kc * p.c_apoptosis_threshold
-
-    # Quiescence score: sQ = k*(n_norm - n0) + kc*(c - c_apoptosis_threshold)
+def init_minimal_network_genotype(p: Params) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Initialize a minimal 2->2->3 response network (inputs: oxygen, crowding; outputs: P/Q/A).
+    Params: p.
+    Returns: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2,), phi_out (3,).
+    """
+    # Input vector x = [c, n_norm], with n_norm = n_neigh / 8.
+    # Hidden nodes:
+    # hN: "crowding gate" active for n_norm > 3/8.
+    # hA: "hypoxia gate" active for c < c_apoptosis_threshold.
+    k_n = 46.0239
+    k_c = 38.6537
     n0 = p.c_quiescence_threshold / 8.0
-    W[1,1] = k
-    W[1,0] = kc
-    b[1] = -k * n0 - kc * p.c_apoptosis_threshold
 
-    # Proliferation score: sP = -k*(n_norm - n0) + kc*(c - c_apoptosis_threshold)
-    W[0,1] = -k
-    W[0,0] = kc
-    b[0] = k * n0 - kc * p.c_apoptosis_threshold
+    w_in_hidden = np.array([
+        [0.0, k_n],     # hN
+        [-k_c, 0.0],    # hA
+    ], dtype=np.float32)
 
-    return W, b
+    theta_hidden = np.array([
+        k_n * n0,
+        -k_c * p.c_apoptosis_threshold,
+    ], dtype=np.float32)
+
+    # Output pre-activations:
+    # zP = -sN*hN - sA*hA + bP
+    # zQ = +sN*hN - sA*hA + bQ
+    # zA =          sAA*hA - bA
+    sN = 3.1795
+    sA = 0.1839
+    bP = 2.9583
+    bQ = -0.5562
+    sAA = 9.3252
+    bA = 1.8945
+
+    W_hidden_out = np.array([
+        [-sN, -sA],     # P
+        [sN, -sA],      # Q
+        [0.0, sAA],     # A
+    ], dtype=np.float32)
+
+    # Network uses O = T(W*V - phi), so phi stores output thresholds/bias shifts.
+    phi_out = np.array([
+        -bP,            # P
+        -bQ,            # Q
+        bA,             # A
+    ], dtype=np.float32)
+
+    return w_in_hidden, W_hidden_out, theta_hidden, phi_out
 
 
-def policy_action_scores(W: np.ndarray, b: np.ndarray, c_val: float, n_neigh: int) -> np.ndarray:
-    """Compute linear scores for (P,Q,A) given local oxygen and neighbor count.
-    Params: W (3,2), b (3), c_val, n_neigh.
-    Returns: scores (3,) float.
+def policy_action_scores(
+    w_in_hidden: np.ndarray,
+    W_hidden_out: np.ndarray,
+    theta_hidden: np.ndarray,
+    phi_out: np.ndarray,
+    c_val: float,
+    n_neigh: int,
+) -> np.ndarray:
+    """Compute NN output scores (P,Q,A) given local oxygen and neighbor count.
+    Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), c_val, n_neigh.
+    Returns: scores (3,) in [0,1].
     """
     x = np.array([c_val, float(n_neigh) / 8.0], dtype=np.float32)
-    return W @ x + b
+    hidden = transfer_sigmoid(w_in_hidden @ x - theta_hidden)
+    out = transfer_sigmoid(W_hidden_out @ hidden - phi_out)
+    return out
 
 
 def sample_action(scores: np.ndarray) -> int:
@@ -149,21 +181,36 @@ def sample_action(scores: np.ndarray) -> int:
     return int(np.argmax(scores))
 
 
-def mutate_genotype(W: np.ndarray, b: np.ndarray, p: Params, rng: np.random.Generator) -> Tuple[np.ndarray, np.ndarray]:
-    """Mutate genotype entries with probability p and Gaussian noise.
-    Params: W (3,2), b (3), p, rng.
-    Returns: W_new, b_new.
+def mutate_genotype(
+    w_in_hidden: np.ndarray,
+    W_hidden_out: np.ndarray,
+    theta_hidden: np.ndarray,
+    phi_out: np.ndarray,
+    p: Params,
+    rng: np.random.Generator,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """Mutate NN genotype entries with probability p and Gaussian noise.
+    Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), p, rng.
+    Returns: mutated copies of all four arrays.
     """
-    W_new = W.copy()
-    b_new = b.copy()
+    w_new = w_in_hidden.copy()
+    W_new = W_hidden_out.copy()
+    theta_new = theta_hidden.copy()
+    phi_new = phi_out.copy()
+
+    mask_w = rng.random(w_new.shape) < p.p
+    w_new[mask_w] += rng.normal(0.0, p.s, size=mask_w.sum()).astype(np.float32)
 
     mask_W = rng.random(W_new.shape) < p.p
     W_new[mask_W] += rng.normal(0.0, p.s, size=mask_W.sum()).astype(np.float32)
 
-    mask_b = rng.random(b_new.shape) < p.p
-    b_new[mask_b] += rng.normal(0.0, p.s, size=mask_b.sum()).astype(np.float32)
+    mask_theta = rng.random(theta_new.shape) < p.p
+    theta_new[mask_theta] += rng.normal(0.0, p.s, size=mask_theta.sum()).astype(np.float32)
 
-    return W_new, b_new
+    mask_phi = rng.random(phi_new.shape) < p.p
+    phi_new[mask_phi] += rng.normal(0.0, p.s, size=mask_phi.sum()).astype(np.float32)
+
+    return w_new, W_new, theta_new, phi_new
 
 
 class SimulationModel:
@@ -187,16 +234,25 @@ class SimulationModel:
         self.c = np.full((N, N), p.c0, dtype=np.float32)
         set_dirichlet_boundary(self.c, p.c0)
 
-        # Each cell has a W (3,2) and a b (3) for its linear policy (valid if the cell is ALIVE)
+        # Each alive cell carries a small feed-forward response network genotype.
+        # Shapes: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3)
+        self.w = np.zeros((N, N, 2, 2), dtype=np.float32)
         self.W = np.zeros((N, N, 3, 2), dtype=np.float32)
-        self.b = np.zeros((N, N, 3), dtype=np.float32)
+        self.theta = np.zeros((N, N, 2), dtype=np.float32)
+        self.phi = np.zeros((N, N, 3), dtype=np.float32)
 
-        W0, b0 = init_linear_policy_weights(p)
-        self._seed_tumour(W0, b0)
+        w0, W0, theta0, phi0 = init_minimal_network_genotype(p)
+        self._seed_tumour(w0, W0, theta0, phi0)
 
-    def _seed_tumour(self, W0: np.ndarray, b0: np.ndarray) -> None:
+    def _seed_tumour(
+        self,
+        w0: np.ndarray,
+        W0: np.ndarray,
+        theta0: np.ndarray,
+        phi0: np.ndarray
+    ) -> None:
         """Seed a circular cluster of initial cancer cells.
-        Params: W0, b0.
+        Params: w0, W0, theta0, phi0.
         Returns: None.
         """
         N = self.p.N
@@ -212,8 +268,10 @@ class SimulationModel:
                         1e-3,
                         float(self.rng.normal(self.p.Ap, self.p.Ap_s))
                     )
+                    self.w[i,j] = w0
                     self.W[i,j] = W0
-                    self.b[i,j] = b0
+                    self.theta[i,j] = theta0
+                    self.phi[i,j] = phi0
 
     def _uptake_alpha(self) -> np.ndarray:
         """Compute local oxygen uptake coefficient alpha(x,t).
@@ -285,9 +343,11 @@ class SimulationModel:
             
             # Get the local state in (i,j) to choose the next action
             c_ij = float(self.c[i,j])
+            w_ij = self.w[i,j]
             W_ij = self.W[i,j]
-            b_ij = self.b[i,j]
-            scores = policy_action_scores(W_ij, b_ij, c_ij, int(n_neigh[i,j]))
+            theta_ij = self.theta[i,j]
+            phi_ij = self.phi[i,j]
+            scores = policy_action_scores(w_ij, W_ij, theta_ij, phi_ij, c_ij, int(n_neigh[i,j]))
             action = sample_action(scores)
 
             # A: apoptosis frees space
@@ -320,9 +380,18 @@ class SimulationModel:
             self.age_hours[ni,nj] = 0.0
             self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
 
-            W_child, b_child = mutate_genotype(W_ij, b_ij, self.p, self.rng)
+            w_child, W_child, theta_child, phi_child = mutate_genotype(
+                w_ij,
+                W_ij,
+                theta_ij,
+                phi_ij,
+                self.p,
+                self.rng
+            )
+            self.w[ni,nj] = w_child
             self.W[ni,nj] = W_child
-            self.b[ni,nj] = b_child
+            self.theta[ni,nj] = theta_child
+            self.phi[ni,nj] = phi_child
 
             self.age_hours[i,j] = 0.0
             self.prolif_age_hours[i,j] = max(
