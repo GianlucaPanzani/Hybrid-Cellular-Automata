@@ -32,6 +32,8 @@ class Params:
     # Uptake
     rc: float = 0.15
     q: float = 5.0  # quiescent consumes rc/q
+    Tr: float = 0.675
+    k: float = 6.0
 
     # Life-cycle thresholds
     c_apoptosis_threshold: float = 0.15 # apoptosis if oxygen below this (Fig. 5 behaviour)
@@ -48,7 +50,8 @@ class Params:
 
 
 def moore_neighbors_count(state: np.ndarray) -> np.ndarray:
-    """Compute Moore-neighborhood alive+necrotic neighbor count for each site.
+    """Compute Moore-neighborhood occupied-neighbor count for each site.
+    Occupied means alive or necrotic.
     Params: state (N,N) uint8.
     Returns: n_neigh (N,N) int16.
     """
@@ -105,18 +108,26 @@ def transfer_sigmoid(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-2.0 * x))
 
 
+def modulation_factor(R: float, p: Params) -> float:
+    """Metabolic modulation from the paper: F = max(k*(R-Tr)+1, 0.25).
+    Params: R response strength in [0,1], p.
+    Returns: F scalar >= 0.25.
+    """
+    return float(max(p.k * (R - p.Tr) + 1.0, 0.25))
+
+
 def init_minimal_network_genotype(p: Params) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """Initialize a minimal 2->2->3 response network (inputs: oxygen, crowding; outputs: P/Q/A).
     Params: p.
     Returns: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2,), phi_out (3,).
     """
-    # Input vector x = [c, n_norm], with n_norm = n_neigh / 8.
+    # Input vector x = [c, n], with n in [0,8] (Moore neighbors).
     # Hidden nodes:
-    # hN: "crowding gate" active for n_norm > 3/8.
+    # hN: "crowding gate" active for n > 3.
     # hA: "hypoxia gate" active for c < c_apoptosis_threshold.
-    k_n = 46.0239
+    k_n = 46.0239 / 8.0
     k_c = 38.6537
-    n0 = p.c_quiescence_threshold / 8.0
+    n0 = float(p.c_quiescence_threshold)
 
     w_in_hidden = np.array([
         [0.0, k_n],     # hN
@@ -167,7 +178,7 @@ def policy_action_scores(
     Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), c_val, n_neigh.
     Returns: scores (3,) in [0,1].
     """
-    x = np.array([c_val, float(n_neigh) / 8.0], dtype=np.float32)
+    x = np.array([c_val, float(n_neigh)], dtype=np.float32)
     hidden = transfer_sigmoid(w_in_hidden @ x - theta_hidden)
     out = transfer_sigmoid(W_hidden_out @ hidden - phi_out)
     return out
@@ -273,16 +284,17 @@ class SimulationModel:
                     self.theta[i,j] = theta0
                     self.phi[i,j] = phi0
 
-    def _uptake_alpha(self) -> np.ndarray:
-        """Compute local oxygen uptake coefficient alpha(x,t).
-        Params: None.
+    def _uptake_alpha(self, action_map: np.ndarray, F_map: np.ndarray) -> np.ndarray:
+        """Compute local oxygen uptake coefficient alpha(x,t) from chosen actions and modulation.
+        Params: action_map (N,N) int8, F_map (N,N) float32.
         Returns: alpha (N,N).
         """
-        quiescence    = (self.state == ALIVE) & (self.activity == ACT_QUIESC)
-        proliferation = (self.state == ALIVE) & (self.activity == ACT_PROLIF)
+        alive = (self.state == ALIVE)
+        quiescence = alive & (action_map == 1)
+        proliferation = alive & (action_map == 0)
         alpha = np.zeros_like(self.c, dtype=np.float32)
-        alpha[proliferation] = self.p.rc
-        alpha[quiescence] = self.p.rc / self.p.q
+        alpha[proliferation] = self.p.rc * F_map[proliferation]
+        alpha[quiescence] = (self.p.rc / self.p.q) * F_map[quiescence]
         return alpha
 
     def _alive_indices_shuffled(self) -> np.ndarray:
@@ -306,64 +318,89 @@ class SimulationModel:
             if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == EMPTY):
                 neigh.append((ni,nj))
         return tuple(neigh)
-    
-    def _oxygen_demand(self) -> np.ndarray:
-        """Compute per-site oxygen demand (amount requested) in the current field time-step.
-        Params: None.
-        Returns: demand (N,N) float32.
+
+    def _moore_neighbor_count_at(self, i: int, j: int) -> int:
+        """Count occupied Moore neighbors at a single site (periodic, consistent with moore_neighbors_count).
+        Params: i, j.
+        Returns: integer in [0,8].
         """
-        proliferation = (self.state == ALIVE) & (self.activity == ACT_PROLIF)
-        quiescience   = (self.state == ALIVE) & (self.activity == ACT_QUIESC)
-        demand = np.zeros_like(self.c, dtype=np.float32)
-        demand[proliferation] = self.p.rc * self.p.Dt
-        demand[quiescience]   = (self.p.rc / self.p.q) * self.p.Dt
-        return demand
+        N = self.p.N
+        c = 0
+        for di in (-1, 0, 1):
+            for dj in (-1, 0, 1):
+                if di == 0 and dj == 0:
+                    continue
+                ni = (i + di) % N
+                nj = (j + dj) % N
+                if self.state[ni, nj] != EMPTY:
+                    c += 1
+        return c
 
     def step(self) -> Dict[str, float]:
         """Advance simulation by one CA + field update.
         Params: None.
         Returns: summary dict.
         """
-        # 0) Starvation necrosis: if demand > availability -> necrotic (site blocked)
-        demand = self._oxygen_demand()
-        nec_mask = (self.state == ALIVE) & (self.c < demand)
-        self.state[nec_mask] = NECROTIC
-
-        # 1) Update oxygen field
-        alpha = self._uptake_alpha()
-        self.c = oxygen_step_explicit(self.c, alpha, self.p)
-
-        # 2) Update cells in random order
-        n_neigh = moore_neighbors_count(self.state)
+        # Random asynchronous CA update with paper-like order:
+        # decision -> consumption check (starvation necrosis) -> death/action -> division.
+        N = self.p.N
+        action_map = np.full((N, N), -1, dtype=np.int8)
+        F_map = np.zeros((N, N), dtype=np.float32)
         coords = self._alive_indices_shuffled()
 
         for (i,j) in coords:
             if self.state[i,j] != ALIVE:
                 continue
-            
-            # Get the local state in (i,j) to choose the next action
-            c_ij = float(self.c[i,j])
-            w_ij = self.w[i,j]
-            W_ij = self.W[i,j]
-            theta_ij = self.theta[i,j]
-            phi_ij = self.phi[i,j]
-            scores = policy_action_scores(w_ij, W_ij, theta_ij, phi_ij, c_ij, int(n_neigh[i,j]))
-            action = sample_action(scores)
 
-            # A: apoptosis frees space
+            n_ij = self._moore_neighbor_count_at(i, j)
+            scores = policy_action_scores(
+                self.w[i, j],
+                self.W[i, j],
+                self.theta[i, j],
+                self.phi[i, j],
+                float(self.c[i, j]),
+                n_ij
+            )
+            action = sample_action(scores)
+            F_ij = modulation_factor(float(scores[action]), self.p)
+            action_map[i, j] = np.int8(action)
+            F_map[i, j] = np.float32(F_ij)
+
+            # 1) Consumption check / starvation necrosis (for non-apoptotic actions)
+            demand_ij = 0.0
+            if action == 0:
+                demand_ij = self.p.rc * F_ij * self.p.Dt
+            elif action == 1:
+                demand_ij = (self.p.rc / self.p.q) * F_ij * self.p.Dt
+
+            if action != 2 and float(self.c[i, j]) < demand_ij:
+                self.state[i, j] = NECROTIC
+                action_map[i, j] = np.int8(-1)
+                F_map[i, j] = np.float32(0.0)
+                continue
+
+            w_ij = self.w[i, j]
+            W_ij = self.W[i, j]
+            theta_ij = self.theta[i, j]
+            phi_ij = self.phi[i, j]
+
+            # 2) Apoptosis
             if action == 2:
                 self.state[i,j] = EMPTY
+                action_map[i, j] = np.int8(-1)
+                F_map[i, j] = np.float32(0.0)
                 continue
+
+            # 3) Internal proliferation-age counter modulation (paper Eq. (1)).
+            self.age_hours[i,j] += self.p.Dt_age_inc * F_ij
 
             # Q: quiescent
             if action == 1:
                 self.activity[i,j] = ACT_QUIESC
-                self.age_hours[i,j] = 0.0
                 continue
 
             # P: proliferate (contact inhibition if no space)
             self.activity[i,j] = ACT_PROLIF
-            self.age_hours[i,j] += self.p.Dt_age_inc
 
             if self.age_hours[i,j] < self.prolif_age_hours[i,j]:
                 continue
@@ -397,6 +434,10 @@ class SimulationModel:
             self.prolif_age_hours[i,j] = max(
                 1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s))
             )
+
+        # 4) Oxygen PDE update from effective actions taken in this CA step.
+        alpha = self._uptake_alpha(action_map, F_map)
+        self.c = oxygen_step_explicit(self.c, alpha, self.p)
 
         return {
             "alive": int(np.sum(self.state == ALIVE)),
