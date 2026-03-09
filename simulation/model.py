@@ -202,7 +202,7 @@ def mutate_genotype(
     p: Params,
     rng: np.random.Generator,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Mutate NN genotype entries with probability p and Gaussian noise.
+    """Mutate NN genotype with Poisson mutation count and Gaussian perturbations.
     Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), p, rng.
     Returns: mutated copies of all four arrays.
     """
@@ -211,17 +211,37 @@ def mutate_genotype(
     theta_new = theta_hidden.copy()
     phi_new = phi_out.copy()
 
-    mask_w = rng.random(w_new.shape) < p.p
-    w_new[mask_w] += rng.normal(0.0, p.s, size=mask_w.sum()).astype(np.float32)
+    # Paper-consistent mutation logic:
+    # 1) Draw total number of mutation events from Poisson.
+    # 2) Distribute events uniformly over all genotype entries.
+    # 3) Add Gaussian N(0, s) perturbation to selected entries.
+    sizes = np.array([w_new.size, W_new.size, theta_new.size, phi_new.size], dtype=np.int32)
+    total_entries = int(sizes.sum())
+    if total_entries == 0:
+        return w_new, W_new, theta_new, phi_new
 
-    mask_W = rng.random(W_new.shape) < p.p
-    W_new[mask_W] += rng.normal(0.0, p.s, size=mask_W.sum()).astype(np.float32)
+    # p is interpreted as expected fraction of entries mutated per division.
+    n_mut = int(rng.poisson(p.p * total_entries))
+    if n_mut <= 0:
+        return w_new, W_new, theta_new, phi_new
 
-    mask_theta = rng.random(theta_new.shape) < p.p
-    theta_new[mask_theta] += rng.normal(0.0, p.s, size=mask_theta.sum()).astype(np.float32)
+    n_mut = min(n_mut, total_entries)
+    mut_idx = rng.choice(total_entries, size=n_mut, replace=False)
+    noise = rng.normal(0.0, p.s, size=n_mut).astype(np.float32)
 
-    mask_phi = rng.random(phi_new.shape) < p.p
-    phi_new[mask_phi] += rng.normal(0.0, p.s, size=mask_phi.sum()).astype(np.float32)
+    flat = np.concatenate(
+        [w_new.ravel(), W_new.ravel(), theta_new.ravel(), phi_new.ravel()]
+    ).astype(np.float32, copy=False)
+    flat[mut_idx] += noise
+
+    c0 = sizes[0]
+    c1 = c0 + sizes[1]
+    c2 = c1 + sizes[2]
+    c3 = c2 + sizes[3]
+    w_new = flat[:c0].reshape(w_new.shape)
+    W_new = flat[c0:c1].reshape(W_new.shape)
+    theta_new = flat[c1:c2].reshape(theta_new.shape)
+    phi_new = flat[c2:c3].reshape(phi_new.shape)
 
     return w_new, W_new, theta_new, phi_new
 
