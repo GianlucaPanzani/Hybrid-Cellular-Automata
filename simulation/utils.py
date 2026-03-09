@@ -2,9 +2,9 @@ from pathlib import Path
 from dataclasses import fields
 from model import Params
 
-def _find_env_path() -> Path:
+def _find_env_path(filepath: str = ".env") -> Path:
     candidates = [
-        Path(".env"),
+        Path(filepath),
         Path("simulation/.env"),
         Path("Hybrid-Cellular-Automata/simulation/.env"),
     ]
@@ -35,8 +35,8 @@ def _cast_env_value(value: str, target_type):
     return value
 
 
-def get_params_from_env() -> dict:
-    env_path = _find_env_path()
+def get_params_from_env(filepath: str = ".env") -> dict:
+    env_path = _find_env_path(filepath)
     env_values = _load_env(env_path)
     params_kwargs = {}
     for field in fields(Params):

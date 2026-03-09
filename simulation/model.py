@@ -4,12 +4,10 @@ from typing import Dict, Tuple
 
 # Cell states
 EMPTY = np.uint8(0)
-ALIVE = np.uint8(1)
-NECROTIC = np.uint8(2)
-
-# Activity labels (for oxygen uptake)
-ACT_PROLIF = np.uint8(0)
-ACT_QUIESC = np.uint8(1)
+PROLIFERATING = np.uint8(1)
+QUIESCENT = np.uint8(2)
+NECROTIC = np.uint8(3)
+DEAD = np.uint8(4)
 
 
 @dataclass
@@ -51,11 +49,15 @@ class Params:
 
 def moore_neighbors_count(state: np.ndarray) -> np.ndarray:
     """Compute Moore-neighborhood occupied-neighbor count for each site.
-    Occupied means alive or necrotic.
+    Occupied means proliferating, quiescent, or necrotic.
     Params: state (N,N) uint8.
     Returns: n_neigh (N,N) int16.
     """
-    occ = (state != EMPTY).astype(np.int16)
+    occ = (
+        (state == PROLIFERATING) |
+        (state == QUIESCENT) |
+        (state == NECROTIC)
+    ).astype(np.int16)
     n = np.zeros_like(occ, dtype=np.int16)
     n += np.roll(np.roll(occ,1,0), 1, 1)
     n += np.roll(occ, 1, 0)
@@ -258,8 +260,7 @@ class SimulationModel:
         self.rng = np.random.default_rng(p.rng_seed)
 
         N = p.N
-        self.state = np.zeros((N, N), dtype=np.uint8)         # EMPTY/ALIVE/NECROTIC
-        self.activity = np.zeros((N, N), dtype=np.uint8)      # ACT_PROLIF/ACT_QUIESC (only valid if ALIVE)
+        self.state = np.zeros((N, N), dtype=np.uint8)         # EMPTY/PROLIFERATING/QUIESCENT/NECROTIC/DEAD
 
         self.age_hours = np.zeros((N, N), dtype=np.float32)
         self.prolif_age_hours = np.zeros((N, N), dtype=np.float32)
@@ -294,8 +295,7 @@ class SimulationModel:
         for i in range(N):
             for j in range(N):
                 if (i - cx) ** 2 + (j - cy) ** 2 <= rr ** 2:
-                    self.state[i,j] = ALIVE
-                    self.activity[i,j] = ACT_PROLIF
+                    self.state[i,j] = PROLIFERATING
                     self.age_hours[i,j] = 0.0
                     self.prolif_age_hours[i,j] = max(
                         1e-3,
@@ -311,9 +311,9 @@ class SimulationModel:
         Params: action_map (N,N) int8, F_map (N,N) float32.
         Returns: alpha (N,N).
         """
-        alive = (self.state == ALIVE)
-        quiescence = alive & (action_map == 1)
-        proliferation = alive & (action_map == 0)
+        living = (self.state == PROLIFERATING) | (self.state == QUIESCENT)
+        quiescence = living & (action_map == 1)
+        proliferation = living & (action_map == 0)
         alpha = np.zeros_like(self.c, dtype=np.float32)
         alpha[proliferation] = self.p.rc * F_map[proliferation]
         alpha[quiescence] = (self.p.rc / self.p.q) * F_map[quiescence]
@@ -324,12 +324,13 @@ class SimulationModel:
         Params: None.
         Returns: coords (M,2) int.
         """
-        coords = np.argwhere(self.state == ALIVE)
+        coords = np.argwhere((self.state == PROLIFERATING) | (self.state == QUIESCENT))
         self.rng.shuffle(coords)
         return coords
 
     def _von_neumann_empty_neighbors(self, i: int, j: int) -> Tuple[Tuple[int, int], ...]:
-        """List empty Von Neumann neighbors (4-neighborhood).
+        """List available Von Neumann neighbors (4-neighborhood).
+        Available means EMPTY or DEAD (apoptotic debris cleared on recolonization).
         Params: i, j.
         Returns: tuple of (ni,nj).
         """
@@ -337,7 +338,11 @@ class SimulationModel:
         neigh = []
         for di, dj in ((-1,0), (1,0), (0,-1), (0,1)):
             ni, nj = i + di, j + dj
-            if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == EMPTY):
+            if (
+                (0 <= ni < N)
+                and (0 <= nj < N)
+                and (self.state[ni,nj] == EMPTY or self.state[ni,nj] == DEAD)
+            ):
                 neigh.append((ni,nj))
         return tuple(neigh)
 
@@ -354,7 +359,11 @@ class SimulationModel:
                     continue
                 ni = (i + di) % N
                 nj = (j + dj) % N
-                if self.state[ni, nj] != EMPTY:
+                if (
+                    self.state[ni, nj] == PROLIFERATING
+                    or self.state[ni, nj] == QUIESCENT
+                    or self.state[ni, nj] == NECROTIC
+                ):
                     c += 1
         return c
 
@@ -369,11 +378,11 @@ class SimulationModel:
         # Lattice with the returned metabolic modulation factor value per cell
         F_map = np.zeros((N, N), dtype=np.float32)
 
-        # Iterates over each ALIVE and shuffled cells coordinates
+        # Iterates over each living (PROLIFERATING/QUIESCENT) and shuffled cells coordinates
         # Steps per iteration: scores computation -> consumption check (necrosis) -> death/action -> division.
         coords = self._alive_indices_shuffled()
         for (i,j) in coords:
-            if self.state[i,j] != ALIVE:
+            if self.state[i,j] != PROLIFERATING and self.state[i,j] != QUIESCENT:
                 continue
 
             # Compute the number of neighbors (non-empty cells in Moore neighborhood)
@@ -411,18 +420,18 @@ class SimulationModel:
 
             # Apoptosis case (action = A)
             if action == 2:
-                self.state[i,j] = EMPTY
+                self.state[i,j] = DEAD
                 action_map[i,j] = np.int8(-1)
                 F_map[i,j] = np.float32(0.0)
                 continue
 
             # Quiescence case (action = Q)
             if action == 1:
-                self.activity[i,j] = ACT_QUIESC
+                self.state[i,j] = QUIESCENT
                 continue
 
             # Proliferation case (action = P)
-            self.activity[i,j] = ACT_PROLIF
+            self.state[i,j] = PROLIFERATING
 
             # Proliferation-age increment
             self.age_hours[i,j] += self.p.Dt_age_inc * F_ij
@@ -432,14 +441,13 @@ class SimulationModel:
             # Division phase - if no empty Von Neumann neighbors, cell becomes Quiescent instead of Proliferating
             empties = self._von_neumann_empty_neighbors(i, j)
             if not empties:
-                self.activity[i,j] = ACT_QUIESC
+                self.state[i,j] = QUIESCENT
                 self.age_hours[i,j] = 0.0
                 continue
 
             # Choose randomly an empty neighbor to place the daughter cell
             ni, nj = empties[self.rng.integers(0, len(empties))]
-            self.state[ni,nj] = ALIVE
-            self.activity[ni,nj] = ACT_PROLIF
+            self.state[ni,nj] = PROLIFERATING
             self.age_hours[ni,nj] = 0.0
             self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
 
@@ -468,9 +476,14 @@ class SimulationModel:
         alpha = self._uptake_alpha(action_map, F_map)
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
 
+        n_prolif = int(np.sum(self.state == PROLIFERATING))
+        n_quiesc = int(np.sum(self.state == QUIESCENT))
         return {
-            "alive": int(np.sum(self.state == ALIVE)),
+            "alive": n_prolif + n_quiesc,
+            "proliferating": n_prolif,
+            "quiescent": n_quiesc,
             "necrotic": int(np.sum(self.state == NECROTIC)),
+            "dead": int(np.sum(self.state == DEAD)),
             "empty": int(np.sum(self.state == EMPTY)),
             "c_min": float(self.c.min()),
             "c_mean": float(self.c.mean())
@@ -483,12 +496,14 @@ class SimulationModel:
         """
         alive_ts = np.zeros(self.p.steps, dtype=np.int32)
         nec_ts = np.zeros(self.p.steps, dtype=np.int32)
+        dead_ts = np.zeros(self.p.steps, dtype=np.int32)
         cmin_ts = np.zeros(self.p.steps, dtype=np.float32)
 
         for t in range(self.p.steps):
             out = self.step()
             alive_ts[t] = out["alive"]
             nec_ts[t] = out["necrotic"]
+            dead_ts[t] = out["dead"]
             cmin_ts[t] = out["c_min"]
 
-        return {"alive": alive_ts, "necrotic": nec_ts, "c_min": cmin_ts}
+        return {"alive": alive_ts, "necrotic": nec_ts, "dead": dead_ts, "c_min": cmin_ts}
