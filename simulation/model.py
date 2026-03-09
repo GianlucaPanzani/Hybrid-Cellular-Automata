@@ -69,13 +69,15 @@ def moore_neighbors_count(state: np.ndarray) -> np.ndarray:
 
 
 def laplacian_5pt(u: np.ndarray, dx: float) -> np.ndarray:
-    """5-point Laplacian with periodic interior; boundaries handled separately.
+    """5-point Laplacian on interior points with non-periodic boundaries.
     Params: u (N,N), dx.
     Returns: lap (N,N).
     """
-    return (
-        np.roll(u,1,0) + np.roll(u,-1,0) + np.roll(u,1,1) + np.roll(u,-1,1) - 4.0 * u
+    lap = np.zeros_like(u, dtype=np.float32)
+    lap[1:-1, 1:-1] = (
+        u[2:, 1:-1] + u[:-2, 1:-1] + u[1:-1, 2:] + u[1:-1, :-2] - 4.0 * u[1:-1, 1:-1]
     ) / (dx * dx)
+    return lap
 
 
 def set_dirichlet_boundary(u: np.ndarray, value: float) -> None:
@@ -89,13 +91,21 @@ def set_dirichlet_boundary(u: np.ndarray, value: float) -> None:
     u[:, -1] = value
 
 
-def oxygen_step_explicit(c: np.ndarray, alpha: np.ndarray, p: Params) -> np.ndarray:
+def oxygen_step_explicit(c: np.ndarray, uptake: np.ndarray, p: Params) -> np.ndarray:
     """One explicit Euler step for oxygen reaction-diffusion.
-    Params: c (N,N), alpha (N,N), p.
+    PDE form (minimal paper model): dc/dt = Dc * Lap(c) - f_c.
+    Params: c (N,N), uptake=f_c (N,N), p.
     Returns: c_new (N,N).
     """
-    c_new = c + p.Dt * (p.Dc * laplacian_5pt(c, p.d) - alpha * c)
-    c_new = np.maximum(c_new, 0.0)
+    c_work = c.copy()
+    set_dirichlet_boundary(c_work, p.c0)
+    lap = laplacian_5pt(c_work, p.d)
+
+    c_new = c_work.copy()
+    c_new[1:-1, 1:-1] = c_work[1:-1, 1:-1] + p.Dt * (
+        p.Dc * lap[1:-1, 1:-1] - uptake[1:-1, 1:-1]
+    )
+    c_new[1:-1, 1:-1] = np.maximum(c_new[1:-1, 1:-1], 0.0)
     set_dirichlet_boundary(c_new, p.c0)
     return c_new
 
@@ -108,8 +118,8 @@ def transfer_sigmoid(x: np.ndarray) -> np.ndarray:
     return 1.0 / (1.0 + np.exp(-2.0 * x))
 
 
-def modulation_factor(R: float, p: Params) -> float:
-    """Metabolic modulation from the paper: F = max(k*(R-Tr)+1, 0.25).
+def F(R: float, p: Params) -> float:
+    """Metabolic modulation factor from the paper: F = max(k*(R-Tr)+1, 0.25).
     Params: R response strength in [0,1], p.
     Returns: F scalar >= 0.25.
     """
@@ -181,15 +191,7 @@ def policy_action_scores(
     x = np.array([c_val, float(n_neigh)], dtype=np.float32)
     hidden = transfer_sigmoid(w_in_hidden @ x - theta_hidden)
     out = transfer_sigmoid(W_hidden_out @ hidden - phi_out)
-    return out
-
-
-def sample_action(scores: np.ndarray) -> int:
-    """Select the max-score action index.
-    Params: scores (3,).
-    Returns: action index (0=P,1=Q,2=A).
-    """
-    return int(np.argmax(scores))
+    return out # [P_score, Q_score, A_score]
 
 
 def mutate_genotype(
@@ -320,7 +322,7 @@ class SimulationModel:
         return tuple(neigh)
 
     def _moore_neighbor_count_at(self, i: int, j: int) -> int:
-        """Count occupied Moore neighbors at a single site (periodic, consistent with moore_neighbors_count).
+        """Count occupied Moore neighbors, which are all the positions around the cell (i,j).
         Params: i, j.
         Returns: integer in [0,8].
         """
@@ -341,82 +343,91 @@ class SimulationModel:
         Params: None.
         Returns: summary dict.
         """
-        # Random asynchronous CA update with paper-like order:
-        # decision -> consumption check (starvation necrosis) -> death/action -> division.
         N = self.p.N
+        # Lattice with the chosen action per cell
         action_map = np.full((N, N), -1, dtype=np.int8)
+        # Lattice with the returned metabolic modulation factor value per cell
         F_map = np.zeros((N, N), dtype=np.float32)
-        coords = self._alive_indices_shuffled()
 
+        # Iterates over each ALIVE and shuffled cells coordinates
+        # Steps per iteration: scores computation -> consumption check (necrosis) -> death/action -> division.
+        coords = self._alive_indices_shuffled()
         for (i,j) in coords:
             if self.state[i,j] != ALIVE:
                 continue
 
-            n_ij = self._moore_neighbor_count_at(i, j)
+            # Compute the number of neighbors (non-empty cells in Moore neighborhood)
+            n_ij = self._moore_neighbor_count_at(i,j)
+
+            # Compute the forward pass to get actions' scores (to choose the action with highest score)
             scores = policy_action_scores(
-                self.w[i, j],
-                self.W[i, j],
-                self.theta[i, j],
-                self.phi[i, j],
-                float(self.c[i, j]),
+                self.w[i,j],
+                self.W[i,j],
+                self.theta[i,j],
+                self.phi[i,j],
+                float(self.c[i,j]),
                 n_ij
             )
-            action = sample_action(scores)
-            F_ij = modulation_factor(float(scores[action]), self.p)
-            action_map[i, j] = np.int8(action)
-            F_map[i, j] = np.float32(F_ij)
+            action = int(np.argmax(scores))
 
-            # 1) Consumption check / starvation necrosis (for non-apoptotic actions)
+            # Apply the metabolic modulation factor F to the chosen action's score
+            F_ij = F(float(scores[action]), self.p)
+            action_map[i,j] = np.int8(action)
+            F_map[i,j] = np.float32(F_ij)
+
+            # Demand of oxygen depends on the action taken
             demand_ij = 0.0
-            if action == 0:
+            if action == 0: # action = P
                 demand_ij = self.p.rc * F_ij * self.p.Dt
-            elif action == 1:
+            elif action == 1: # action = Q
                 demand_ij = (self.p.rc / self.p.q) * F_ij * self.p.Dt
 
-            if action != 2 and float(self.c[i, j]) < demand_ij:
-                self.state[i, j] = NECROTIC
-                action_map[i, j] = np.int8(-1)
-                F_map[i, j] = np.float32(0.0)
+            # Necrotic case (oxygen available < demand)
+            if action != 2 and float(self.c[i,j]) < demand_ij:
+                self.state[i,j] = NECROTIC
+                action_map[i,j] = np.int8(-1)
+                F_map[i,j] = np.float32(0.0)
                 continue
 
-            w_ij = self.w[i, j]
-            W_ij = self.W[i, j]
-            theta_ij = self.theta[i, j]
-            phi_ij = self.phi[i, j]
-
-            # 2) Apoptosis
+            # Apoptosis case (action = A)
             if action == 2:
                 self.state[i,j] = EMPTY
-                action_map[i, j] = np.int8(-1)
-                F_map[i, j] = np.float32(0.0)
+                action_map[i,j] = np.int8(-1)
+                F_map[i,j] = np.float32(0.0)
                 continue
 
-            # 3) Internal proliferation-age counter modulation (paper Eq. (1)).
-            self.age_hours[i,j] += self.p.Dt_age_inc * F_ij
-
-            # Q: quiescent
+            # Quiescence case (action = Q)
             if action == 1:
                 self.activity[i,j] = ACT_QUIESC
                 continue
 
-            # P: proliferate (contact inhibition if no space)
+            # Proliferation case (action = P)
             self.activity[i,j] = ACT_PROLIF
 
+            # Proliferation-age increment
+            self.age_hours[i,j] += self.p.Dt_age_inc * F_ij
             if self.age_hours[i,j] < self.prolif_age_hours[i,j]:
                 continue
-
+            
+            # Division phase - if no empty Von Neumann neighbors, cell becomes Quiescent instead of Proliferating
             empties = self._von_neumann_empty_neighbors(i, j)
             if not empties:
                 self.activity[i,j] = ACT_QUIESC
                 self.age_hours[i,j] = 0.0
                 continue
 
+            # Choose randomly an empty neighbor to place the daughter cell
             ni, nj = empties[self.rng.integers(0, len(empties))]
             self.state[ni,nj] = ALIVE
             self.activity[ni,nj] = ACT_PROLIF
             self.age_hours[ni,nj] = 0.0
             self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
 
+            # Mutation of child's genotype (with probability p)
+            w_ij = self.w[i,j]
+            W_ij = self.W[i,j]
+            theta_ij = self.theta[i,j]
+            phi_ij = self.phi[i,j]
             w_child, W_child, theta_child, phi_child = mutate_genotype(
                 w_ij,
                 W_ij,
@@ -431,11 +442,9 @@ class SimulationModel:
             self.phi[ni,nj] = phi_child
 
             self.age_hours[i,j] = 0.0
-            self.prolif_age_hours[i,j] = max(
-                1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s))
-            )
+            self.prolif_age_hours[i,j] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
 
-        # 4) Oxygen PDE update from effective actions taken in this CA step.
+        # Oxygen PDE update from effective actions taken in this CA step.
         alpha = self._uptake_alpha(action_map, F_map)
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
 
