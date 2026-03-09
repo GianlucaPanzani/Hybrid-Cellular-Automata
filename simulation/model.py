@@ -178,74 +178,84 @@ def init_minimal_network_genotype(p: Params) -> Tuple[np.ndarray, np.ndarray, np
     return w_in_hidden, W_hidden_out, theta_hidden, phi_out
 
 
-def policy_action_scores(
-    w_in_hidden: np.ndarray,
-    W_hidden_out: np.ndarray,
-    theta_hidden: np.ndarray,
-    phi_out: np.ndarray,
-    c_val: float,
-    n_neigh: int,
-) -> np.ndarray:
-    """Compute NN output scores (P,Q,A) given local oxygen and neighbor count.
-    Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), c_val, n_neigh.
-    Returns: scores (3,) in [0,1].
-    """
-    x = np.array([c_val, float(n_neigh)], dtype=np.float32)
-    hidden = transfer_sigmoid(w_in_hidden @ x - theta_hidden)
-    out = transfer_sigmoid(W_hidden_out @ hidden - phi_out)
-    return out # [P_score, Q_score, A_score]
+@dataclass
+class ArtificialNN:
+    """Per-cell ANN genotype and behaviour (2->2->3 network)."""
+    w_in_hidden: np.ndarray
+    W_hidden_out: np.ndarray
+    theta_hidden: np.ndarray
+    phi_out: np.ndarray
 
+    @classmethod
+    def from_params(cls, p: Params) -> "ArtificialNN":
+        """Build a minimal-model ANN instance from default paper-aligned parameters."""
+        w, W, theta, phi = init_minimal_network_genotype(p)
+        return cls(w, W, theta, phi)
 
-def mutate_genotype(
-    w_in_hidden: np.ndarray,
-    W_hidden_out: np.ndarray,
-    theta_hidden: np.ndarray,
-    phi_out: np.ndarray,
-    p: Params,
-    rng: np.random.Generator,
-) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Mutate NN genotype with Poisson mutation count and Gaussian perturbations.
-    Params: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3), p, rng.
-    Returns: mutated copies of all four arrays.
-    """
-    w_new = w_in_hidden.copy()
-    W_new = W_hidden_out.copy()
-    theta_new = theta_hidden.copy()
-    phi_new = phi_out.copy()
+    def copy(self) -> "ArtificialNN":
+        """Deep-copy ANN parameters."""
+        return ArtificialNN(
+            self.w_in_hidden.copy(),
+            self.W_hidden_out.copy(),
+            self.theta_hidden.copy(),
+            self.phi_out.copy(),
+        )
 
-    # Paper-consistent mutation logic:
-    # 1) Draw total number of mutation events from Poisson.
-    # 2) Distribute events uniformly over all genotype entries.
-    # 3) Add Gaussian N(0, s) perturbation to selected entries.
-    sizes = np.array([w_new.size, W_new.size, theta_new.size, phi_new.size], dtype=np.int32)
-    total_entries = int(sizes.sum())
-    if total_entries == 0:
-        return w_new, W_new, theta_new, phi_new
+    def forward(self, c_val: float, n_neigh: int) -> np.ndarray:
+        """Compute action scores [P,Q,A] in [0,1] from local oxygen and crowding."""
+        x = np.array([c_val, float(n_neigh)], dtype=np.float32)
+        hidden = transfer_sigmoid(self.w_in_hidden @ x - self.theta_hidden)
+        out = transfer_sigmoid(self.W_hidden_out @ hidden - self.phi_out)
+        return out
 
-    # p is interpreted as expected fraction of entries mutated per division.
-    n_mut = int(rng.poisson(p.p * total_entries))
-    if n_mut <= 0:
-        return w_new, W_new, theta_new, phi_new
+    def mutate_inplace(self, p: Params, rng: np.random.Generator) -> None:
+        """Apply paper-consistent mutations directly to this ANN genotype."""
+        sizes = np.array(
+            [
+                self.w_in_hidden.size,
+                self.W_hidden_out.size,
+                self.theta_hidden.size,
+                self.phi_out.size,
+            ],
+            dtype=np.int32,
+        )
+        total_entries = int(sizes.sum())
+        if total_entries == 0:
+            return
 
-    n_mut = min(n_mut, total_entries)
-    mut_idx = rng.choice(total_entries, size=n_mut, replace=False)
-    noise = rng.normal(0.0, p.s, size=n_mut).astype(np.float32)
+        # p is interpreted as expected fraction of entries mutated per division.
+        n_mut = int(rng.poisson(p.p * total_entries))
+        if n_mut <= 0:
+            return
 
-    flat = np.concatenate(
-        [w_new.ravel(), W_new.ravel(), theta_new.ravel(), phi_new.ravel()]
-    ).astype(np.float32, copy=False)
-    flat[mut_idx] += noise
+        n_mut = min(n_mut, total_entries)
+        mut_idx = rng.choice(total_entries, size=n_mut, replace=False)
+        noise = rng.normal(0.0, p.s, size=n_mut).astype(np.float32)
 
-    c0 = sizes[0]
-    c1 = c0 + sizes[1]
-    c2 = c1 + sizes[2]
-    c3 = c2 + sizes[3]
-    w_new = flat[:c0].reshape(w_new.shape)
-    W_new = flat[c0:c1].reshape(W_new.shape)
-    theta_new = flat[c1:c2].reshape(theta_new.shape)
-    phi_new = flat[c2:c3].reshape(phi_new.shape)
+        flat = np.concatenate(
+            [
+                self.w_in_hidden.ravel(),
+                self.W_hidden_out.ravel(),
+                self.theta_hidden.ravel(),
+                self.phi_out.ravel(),
+            ]
+        ).astype(np.float32, copy=False)
+        flat[mut_idx] += noise
 
-    return w_new, W_new, theta_new, phi_new
+        c0 = sizes[0]
+        c1 = c0 + sizes[1]
+        c2 = c1 + sizes[2]
+        c3 = c2 + sizes[3]
+        self.w_in_hidden = flat[:c0].reshape(self.w_in_hidden.shape)
+        self.W_hidden_out = flat[c0:c1].reshape(self.W_hidden_out.shape)
+        self.theta_hidden = flat[c1:c2].reshape(self.theta_hidden.shape)
+        self.phi_out = flat[c2:c3].reshape(self.phi_out.shape)
+
+    def mutated_copy(self, p: Params, rng: np.random.Generator) -> "ArtificialNN":
+        """Return a mutated copy of this ANN genotype."""
+        child = self.copy()
+        child.mutate_inplace(p, rng)
+        return child
 
 
 class SimulationModel:
@@ -268,25 +278,19 @@ class SimulationModel:
         self.c = np.full((N, N), p.c0, dtype=np.float32)
         set_dirichlet_boundary(self.c, p.c0)
 
-        # Each alive cell carries a small feed-forward response network genotype.
-        # Shapes: w_in_hidden (2,2), W_hidden_out (3,2), theta_hidden (2), phi_out (3)
-        self.w = np.zeros((N, N, 2, 2), dtype=np.float32)
-        self.W = np.zeros((N, N, 3, 2), dtype=np.float32)
-        self.theta = np.zeros((N, N, 2), dtype=np.float32)
-        self.phi = np.zeros((N, N, 3), dtype=np.float32)
+        # Each living cell can carry one ANN genotype instance (None for non-living cells).
+        self.ann = np.empty((N, N), dtype=object)
+        self.ann.fill(None)
 
-        w0, W0, theta0, phi0 = init_minimal_network_genotype(p)
-        self._seed_tumour(w0, W0, theta0, phi0)
+        ann_proto = ArtificialNN.from_params(p)
+        self._seed_tumour(ann_proto)
 
     def _seed_tumour(
         self,
-        w0: np.ndarray,
-        W0: np.ndarray,
-        theta0: np.ndarray,
-        phi0: np.ndarray
+        ann_proto: ArtificialNN,
     ) -> None:
         """Seed a circular cluster of initial cancer cells.
-        Params: w0, W0, theta0, phi0.
+        Params: ann_proto.
         Returns: None.
         """
         N = self.p.N
@@ -301,10 +305,7 @@ class SimulationModel:
                         1e-3,
                         float(self.rng.normal(self.p.Ap, self.p.Ap_s))
                     )
-                    self.w[i,j] = w0
-                    self.W[i,j] = W0
-                    self.theta[i,j] = theta0
-                    self.phi[i,j] = phi0
+                    self.ann[i,j] = ann_proto.copy()
 
     def _uptake_alpha(self, action_map: np.ndarray, F_map: np.ndarray) -> np.ndarray:
         """Compute local oxygen uptake coefficient alpha(x,t) from chosen actions and modulation.
@@ -385,18 +386,16 @@ class SimulationModel:
             if self.state[i,j] != PROLIFERATING and self.state[i,j] != QUIESCENT:
                 continue
 
+            # Defensive guard: alive cells should always have an ANN
+            ann_ij = self.ann[i,j]
+            if ann_ij is None:
+                continue
+
             # Compute the number of neighbors (non-empty cells in Moore neighborhood)
             n_ij = self._moore_neighbor_count_at(i,j)
 
             # Compute the forward pass to get actions' scores (to choose the action with highest score)
-            scores = policy_action_scores(
-                self.w[i,j],
-                self.W[i,j],
-                self.theta[i,j],
-                self.phi[i,j],
-                float(self.c[i,j]),
-                n_ij
-            )
+            scores = ann_ij.forward(float(self.c[i,j]), n_ij)
             action = int(np.argmax(scores))
 
             # Apply the metabolic modulation factor F to the chosen action's score
@@ -414,6 +413,7 @@ class SimulationModel:
             # Necrotic case (oxygen available < demand)
             if action != 2 and float(self.c[i,j]) < demand_ij:
                 self.state[i,j] = NECROTIC
+                self.ann[i,j] = None
                 action_map[i,j] = np.int8(-1)
                 F_map[i,j] = np.float32(0.0)
                 continue
@@ -421,6 +421,7 @@ class SimulationModel:
             # Apoptosis case (action = A)
             if action == 2:
                 self.state[i,j] = DEAD
+                self.ann[i,j] = None
                 action_map[i,j] = np.int8(-1)
                 F_map[i,j] = np.float32(0.0)
                 continue
@@ -448,26 +449,9 @@ class SimulationModel:
             # Choose randomly an empty neighbor to place the daughter cell
             ni, nj = empties[self.rng.integers(0, len(empties))]
             self.state[ni,nj] = PROLIFERATING
+            self.ann[ni,nj] = ann_ij.mutated_copy(self.p, self.rng)
             self.age_hours[ni,nj] = 0.0
             self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
-
-            # Mutation of child's genotype (with probability p)
-            w_ij = self.w[i,j]
-            W_ij = self.W[i,j]
-            theta_ij = self.theta[i,j]
-            phi_ij = self.phi[i,j]
-            w_child, W_child, theta_child, phi_child = mutate_genotype(
-                w_ij,
-                W_ij,
-                theta_ij,
-                phi_ij,
-                self.p,
-                self.rng
-            )
-            self.w[ni,nj] = w_child
-            self.W[ni,nj] = W_child
-            self.theta[ni,nj] = theta_child
-            self.phi[ni,nj] = phi_child
 
             self.age_hours[i,j] = 0.0
             self.prolif_age_hours[i,j] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
@@ -475,13 +459,10 @@ class SimulationModel:
         # Oxygen PDE update from effective actions taken in this CA step.
         alpha = self._uptake_alpha(action_map, F_map)
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
-
-        n_prolif = int(np.sum(self.state == PROLIFERATING))
-        n_quiesc = int(np.sum(self.state == QUIESCENT))
+        
         return {
-            "alive": n_prolif + n_quiesc,
-            "proliferating": n_prolif,
-            "quiescent": n_quiesc,
+            "proliferating": int(np.sum(self.state == PROLIFERATING)),
+            "quiescent": int(np.sum(self.state == QUIESCENT)),
             "necrotic": int(np.sum(self.state == NECROTIC)),
             "dead": int(np.sum(self.state == DEAD)),
             "empty": int(np.sum(self.state == EMPTY)),
