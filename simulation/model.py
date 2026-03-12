@@ -191,66 +191,53 @@ class ArtificialNN:
         - p (Params) : Model parameters.
         - ann_params_dict (dict): parameters used to initialize the weights and biases of the ANN.
         '''
+
         # Input vector x = [c, n], with n in [0,8] (Moore neighbors).
         # Hidden nodes:
         # hN: "crowding gate" active for n > 3.
         # hA: "hypoxia gate" active for c < c_apoptosis_threshold.
-        k_n = 46.0239 / 8.0                     # Project-calibrated slope for the hidden crowding gate hN (steep transition around n0).
-        k_c = 38.6537                           # Project-calibrated slope for the hidden hypoxia gate hA (steep transition around oxygen threshold).
-
         # Output pre-activations:
-        # zP = -sN*hN - sA*hA + bP
-        # zQ = +sN*hN - sA*hA + bQ
-        # zA =          sAA*hA - bA
-        sN = 3.1795     # Project-calibrated coupling strength from crowding gate hN to proliferation/quiescence outputs.
-        sA = 0.1839     # Project-calibrated inhibitory strength from hypoxia gate hA to proliferation/quiescence outputs.
-        bP = 2.9583     # Project output bias term for proliferative response pre-activation.
-        bQ = -0.5562    # Project output bias term for quiescent response pre-activation.
-        sAA = 9.3252    # Project-calibrated coupling from hypoxia gate hA to apoptosis output.
-        bA = 1.8945     # Project output bias term for apoptosis response pre-activation.
+        # P = -sN*hN - sA*hA + bP
+        # Q = +sN*hN - sA*hA + bQ
+        # A =          sAA*hA - bA
+        k_n = float(ann_params_dict["k_n"])
+        k_c = float(ann_params_dict["k_c"])
+        sN = float(ann_params_dict["sN"])
+        sA = float(ann_params_dict["sA"])
+        sAA = float(ann_params_dict["sAA"])
+        bP = float(ann_params_dict["bP"])
+        bQ = float(ann_params_dict["bQ"])
+        bA = float(ann_params_dict["bA"])
 
-        n0 = float(p.c_quiescence_threshold)    # Project crowding pivot for hN; derived from neighbour threshold used in this implementation.
+        # Project crowding pivot for hN; derived from neighbour threshold used in this implementation
+        n0 = float(p.c_quiescence_threshold)
 
-        if ann_params_dict is not None:
-            k_n = float(ann_params_dict["k_n"])
-            k_c = float(ann_params_dict["k_c"])
-            sN = float(ann_params_dict["sN"])
-            sA = float(ann_params_dict["sA"])
-            sAA = float(ann_params_dict["sAA"])
-            bP = float(ann_params_dict["bP"])
-            bQ = float(ann_params_dict["bQ"])
-            bA = float(ann_params_dict["bA"])
-
-        # Paper input-to-hidden weight matrix (w) for the minimal response network.
-        w_in_hidden = np.array([
+        # Input-to-hidden weight matrix (w) for the minimal response network.
+        self.w_in_hidden = np.array([
             [0.0, k_n],     # hN
             [-k_c, 0.0],    # hA
         ], dtype=np.float32)
 
-        # Paper hidden thresholds (theta) that set activation pivots for hN and hA.
-        theta_hidden = np.array([
+        # Hidden thresholds (theta) that set activation pivots for hN and hA.
+        self.theta_hidden = np.array([
             k_n * n0,
             -k_c * p.c_apoptosis_threshold,
         ], dtype=np.float32)
 
         # Hidden-to-output weight matrix (W) for the three life-cycle responses [P,Q,A].
-        W_hidden_out = np.array([
+        self.W_hidden_out = np.array([
             [-sN, -sA],     # P
             [sN, -sA],      # Q
             [0.0, sAA],     # A
         ], dtype=np.float32)
 
-        # Paper output thresholds (phi), encoded as bias shifts in O = T(WV - phi).
-        phi_out = np.array([
+        # Output thresholds (phi), encoded as bias shifts in O = T(WV - phi).
+        self.phi_out = np.array([
             -bP,            # P
             -bQ,            # Q
             bA,             # A
         ], dtype=np.float32)
 
-        self.w_in_hidden = w_in_hidden
-        self.W_hidden_out = W_hidden_out
-        self.theta_hidden = theta_hidden
-        self.phi_out = phi_out
         return
     
 
@@ -628,6 +615,7 @@ class SimulationModel:
         nec_ts = np.zeros(self.p.steps, dtype=np.int32)
         dead_ts = np.zeros(self.p.steps, dtype=np.int32)
         empty_ts = np.zeros(self.p.steps, dtype=np.int32)
+        cmean_ts = np.zeros(self.p.steps, dtype=np.float32)
         cmin_ts = np.zeros(self.p.steps, dtype=np.float32)
 
         for t in range(self.p.steps):
@@ -638,6 +626,7 @@ class SimulationModel:
             nec_ts[t] = out["necrotic"]
             dead_ts[t] = out["dead"]
             empty_ts[t] = out["empty"]
+            cmean_ts[t] = out["c_mean"]
             cmin_ts[t] = out["c_min"]
 
         return {
@@ -647,5 +636,6 @@ class SimulationModel:
             "necrotic": nec_ts,
             "dead": dead_ts,
             "empty": empty_ts,
+            "c_mean": cmean_ts,
             "c_min": cmin_ts
         }

@@ -1,5 +1,6 @@
 from pathlib import Path
 from dataclasses import fields
+from typing import Dict
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Patch
@@ -241,3 +242,68 @@ def plot_stability_curve(p: Params):
     plt.ylabel("Dt max (CFL)")
     plt.title("PDE stability region: Dt <= d^2/(4Dc)")
     plt.show()
+
+
+def eval_simulation(history: Dict[str, np.ndarray], params: Params) -> float:
+    """
+    Evaluate whether one simulation shows the expected qualitative behavior.
+
+    Params
+    -------
+    - history (Dict[str, np.ndarray]) : Per-step simulation summaries.
+
+    Returns
+    --------
+    - eval_dict (Dict[str, float]) : Numeric evaluation metrics.
+    """
+    if len(history) == 0:
+        return 0
+
+    # Compute the growth ratio
+    alive_start = float(history["alive"][0])
+    alive_end = float(history["alive"][-1])
+    growth_ratio = alive_end / max(alive_start, 1.0)
+
+    # Number of necrotic and dead cells at the end
+    necrotic_end = float(history["necrotic"][-1])
+    dead_end = float(history["dead"][-1])
+
+    # Correctness heuristic
+    if not (
+        (growth_ratio > 1)          # growth ensured
+        and (necrotic_end >= 1)     # necrosis ensured
+        and (dead_end > 0)          # death ensured
+    ):
+        return 0
+    
+    # Number of total time steps
+    ts_length = params.steps
+
+    # Compute the number of cells in the lattice
+    N_square = params.N**2
+
+    # Normalize every element of the time series with the total number of cells (N^2)
+    p_ts = np.array(history["proliferating"], dtype=np.float64) / N_square
+    q_ts = np.array(history["quiescent"], dtype=np.float64) / N_square
+    n_ts = np.array(history["necrotic"], dtype=np.float64) / N_square
+    d_ts = np.array(history["dead"], dtype=np.float64) / N_square
+    e_ts = (np.array(history["empty"], dtype=np.float64) - min(history["empty"])) / N_square
+
+    # Normalize as the mean over time, each in [0, 1]
+    p_norm = float(p_ts.sum() / max(ts_length, 1.0))
+    q_norm = float(q_ts.sum() / max(ts_length, 1.0))
+    n_norm = float(n_ts.sum() / max(ts_length, 1.0))
+    d_norm = float(d_ts.sum() / max(ts_length, 1.0))
+    e_norm = float(e_ts.sum() / max(ts_length, 1.0))
+
+    # Weights for each term
+    w_p = 2
+    w_q = 1.70
+    w_n = -0.60
+    w_d = -1.0
+    w_e = 0.0
+
+    # Paper-inspired score: weighted sum of normalized stats
+    score = w_p * p_norm + w_q * q_norm + w_n * n_norm + w_e * e_norm + w_d * d_norm
+    #print(f"score = p + q + n + e + d = {w_p * p_norm} + {w_q * q_norm} + {w_n * n_norm} + {w_e * e_norm} + {w_d * d_norm} = {score}") # debug
+    return score
