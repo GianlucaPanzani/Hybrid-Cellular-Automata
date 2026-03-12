@@ -600,23 +600,40 @@ class SimulationModel:
             "c_mean": float(self.c.mean())
         }
 
-    def run(self) -> Dict[str, np.ndarray]:
+    def run(self, track_diversity: bool = False) -> Dict[str, np.ndarray]:
         '''
-        Run simulation for all configured steps and collect basic trajectories.
+        Run simulation for all configured steps and collect trajectories.
+
+        Params
+        -------
+        - track_diversity (bool) : If True, compute Shannon diversity over living-cell genotypes.
 
         Returns
         --------
-        - trajectories (Dict[str, np.ndarray]) : Time-series arrays for `"alive"`, `"necrotic"`,
-          `"dead"`, and `"c_min"`.
+        - trajectories (Dict[str, np.ndarray]) : Time-series arrays for state counts and
+          diagnostics, including `"invasive"` and `"shannon"`.
         '''
         alive_ts = np.zeros(self.p.steps, dtype=np.int32)
         prolif_ts = np.zeros(self.p.steps, dtype=np.int32)
         quiesc_ts = np.zeros(self.p.steps, dtype=np.int32)
         nec_ts = np.zeros(self.p.steps, dtype=np.int32)
         dead_ts = np.zeros(self.p.steps, dtype=np.int32)
+        total_ts = np.zeros(self.p.steps, dtype=np.int32)
         empty_ts = np.zeros(self.p.steps, dtype=np.int32)
         cmean_ts = np.zeros(self.p.steps, dtype=np.float32)
         cmin_ts = np.zeros(self.p.steps, dtype=np.float32)
+        invasive_ts = np.zeros(self.p.steps, dtype=np.float32)
+        shannon_ts = np.full(self.p.steps, np.nan, dtype=np.float32)
+
+        cx = cy = self.p.N // 2
+
+        def _genotype_key(ann: ArtificialNN) -> Tuple[bytes, bytes, bytes, bytes]:
+            return (
+                ann.w_in_hidden.tobytes(),
+                ann.W_hidden_out.tobytes(),
+                ann.theta_hidden.tobytes(),
+                ann.phi_out.tobytes(),
+            )
 
         for t in range(self.p.steps):
             out = self.step()
@@ -629,6 +646,37 @@ class SimulationModel:
             cmean_ts[t] = out["c_mean"]
             cmin_ts[t] = out["c_min"]
 
+            occupied = (
+                (self.state == PROLIFERATING)
+                | (self.state == QUIESCENT)
+                | (self.state == NECROTIC)
+            )
+            if alive_ts[t] > 0 or nec_ts[t] > 0:
+                ii, jj = np.where(occupied)
+                invasive_ts[t] = float(np.sqrt((ii - cx) ** 2 + (jj - cy) ** 2).max())
+
+            # Case of computing the diversity level (Shannon Index) in the lattice
+            if track_diversity:
+                alive_coords = np.argwhere((self.state == PROLIFERATING) | (self.state == QUIESCENT))
+                # Case of no existing alive cells
+                if alive_coords.size == 0:
+                    shannon_ts[t] = 0.0
+                # Case of existing alive cells (are counted the number of cells for each different genotype)
+                else:
+                    counts = {}
+                    for i, j in alive_coords:
+                        ann_ij = self.ann[i,j]
+                        if ann_ij is None:
+                            continue
+                        key = _genotype_key(ann_ij)
+                        counts[key] = counts.get(key, 0) + 1
+                    if not counts:
+                        shannon_ts[t] = 0.0
+                    else:
+                        freq = np.array(list(counts.values()), dtype=np.float64)
+                        probs = freq / freq.sum()
+                        shannon_ts[t] = float(-np.sum(probs * np.log(probs + 1e-12)))  # Shannon Index (H) formula
+
         return {
             "alive": alive_ts,
             "proliferating": prolif_ts,
@@ -637,5 +685,7 @@ class SimulationModel:
             "dead": dead_ts,
             "empty": empty_ts,
             "c_mean": cmean_ts,
-            "c_min": cmin_ts
+            "c_min": cmin_ts,
+            "invasive": invasive_ts,
+            "shannon": shannon_ts,
         }
