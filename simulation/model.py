@@ -16,33 +16,33 @@ class Params:
     Store simulation parameters for the oxygen-only Hybrid Cellular Automata model.
     '''
     # Lattice
-    N: int = 200                            # Project grid side length; in the paper this is the NxN CA/PDE computational domain.
-    seed_radius: int = 6                    # Project-only initialization radius (in lattice sites) for the central seeded tumour.
+    N: int = 400                            # Project grid side length; in the paper this is the NxN CA/PDE computational domain.
+    seed_radius: int = 4                    # Project-only initialization radius (in lattice sites) for the central seeded tumour.
 
     # Runtime
-    steps: int = 150                        # Project-only number of global CA/PDE iterations to run.
+    steps: int = 200                        # Project-only number of global CA/PDE iterations to run.
     rng_seed: int = 0                       # Project-only random seed used for reproducible stochastic events.
 
-    # Oxygen field (dimensionless)
+    # Oxygen fields
     c0: float = 1.0                         # Paper c_0: fixed oxygen value at the domain boundary (main environmental control parameter).
-    Dc: float = 0.05                        # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
-    Dt: float = 0.02                        # Paper Delta t: simulation time step used in the explicit oxygen update.
-    d: float = 1.0                          # Paper d: lattice spacing used by the finite-difference Laplacian.
+    Dc: float = 1.04                        # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
+    Dt: float = 5e-4                        # Paper Delta t: simulation time step used in the explicit oxygen update.
+    d: float = 0.05                         # Paper d: lattice spacing used by the finite-difference Laplacian.
 
     # Uptake
-    rc: float = 0.15                        # Paper r_c: baseline oxygen consumption rate.
+    rc: float = 124.7                       # Paper r_c: baseline oxygen consumption rate.
     q: float = 5.0                          # Project simplification: quiescent-cell uptake scaling factor (uptake = r_c / q).
     Tr: float = 0.675                       # Paper T_r: response target/threshold in metabolic modulation F(R).
     k: float = 6.0                          # Paper k: slope (gain) of metabolic modulation F(R).
 
     # Life-cycle thresholds
     c_apoptosis_threshold: float = 0.15     # Project threshold for the hypoxia gate that drives apoptosis preference.
-    c_quiescence_threshold: int = 3         # Project crowding threshold (on Moore-neighbour count) used by the quiescence gate.
+    c_quiescence_threshold: float = 3       # Project crowding threshold (on Moore-neighbour count) used by the quiescence gate.
 
     # Cell cycle (hours)
     Dt_age_inc: float = 16.0                # Project conversion from one CA update to biological hours for age accumulation.
     Ap: float = 16.0                        # Paper A_p: mean proliferation age (cell-cycle duration) required before division.
-    Ap_s: float = 8.0                       # Project heterogeneity term: std used to sample per-cell proliferation age around A_p.
+    Ap_s: float = 8.0                       # Project heterogeneity term: std dev used to sample per-cell proliferation age around A_p.
 
     # Mutations
     p: float = 0.01                         # Paper p: mutation probability/rate of division (implemented as expected mutated fraction).
@@ -106,10 +106,6 @@ def set_dirichlet_boundary(u: np.ndarray, value: float) -> None:
     -------
     - u (np.ndarray) : Scalar field with shape `(N, N)` to modify in place.
     - value (float) : Constant boundary value.
-
-    Returns
-    --------
-    - None (None) : This function modifies `u` in place.
     '''
     u[0, :] = value
     u[-1, :] = value
@@ -186,13 +182,14 @@ class ArtificialNN:
     theta_hidden: np.ndarray
     phi_out: np.ndarray
 
-    def __init__(self, p: Params):
+    def __init__(self, p: Params, ann_params_dict: dict = None):
         '''
         Initialize a baseline ANN genotype from model parameters.
 
         Params
         -------
         - p (Params) : Model parameters.
+        - ann_params_dict (dict): parameters used to initialize the weights and biases of the ANN.
         '''
         # Input vector x = [c, n], with n in [0,8] (Moore neighbors).
         # Hidden nodes:
@@ -200,7 +197,29 @@ class ArtificialNN:
         # hA: "hypoxia gate" active for c < c_apoptosis_threshold.
         k_n = 46.0239 / 8.0                     # Project-calibrated slope for the hidden crowding gate hN (steep transition around n0).
         k_c = 38.6537                           # Project-calibrated slope for the hidden hypoxia gate hA (steep transition around oxygen threshold).
+
+        # Output pre-activations:
+        # zP = -sN*hN - sA*hA + bP
+        # zQ = +sN*hN - sA*hA + bQ
+        # zA =          sAA*hA - bA
+        sN = 3.1795     # Project-calibrated coupling strength from crowding gate hN to proliferation/quiescence outputs.
+        sA = 0.1839     # Project-calibrated inhibitory strength from hypoxia gate hA to proliferation/quiescence outputs.
+        bP = 2.9583     # Project output bias term for proliferative response pre-activation.
+        bQ = -0.5562    # Project output bias term for quiescent response pre-activation.
+        sAA = 9.3252    # Project-calibrated coupling from hypoxia gate hA to apoptosis output.
+        bA = 1.8945     # Project output bias term for apoptosis response pre-activation.
+
         n0 = float(p.c_quiescence_threshold)    # Project crowding pivot for hN; derived from neighbour threshold used in this implementation.
+
+        if ann_params_dict is not None:
+            k_n = float(ann_params_dict["k_n"])
+            k_c = float(ann_params_dict["k_c"])
+            sN = float(ann_params_dict["sN"])
+            sA = float(ann_params_dict["sA"])
+            sAA = float(ann_params_dict["sAA"])
+            bP = float(ann_params_dict["bP"])
+            bQ = float(ann_params_dict["bQ"])
+            bA = float(ann_params_dict["bA"])
 
         # Paper input-to-hidden weight matrix (w) for the minimal response network.
         w_in_hidden = np.array([
@@ -213,17 +232,6 @@ class ArtificialNN:
             k_n * n0,
             -k_c * p.c_apoptosis_threshold,
         ], dtype=np.float32)
-
-        # Output pre-activations:
-        # zP = -sN*hN - sA*hA + bP
-        # zQ = +sN*hN - sA*hA + bQ
-        # zA =          sAA*hA - bA
-        sN = 3.1795     # Project-calibrated coupling strength from crowding gate hN to proliferation/quiescence outputs.
-        sA = 0.1839     # Project-calibrated inhibitory strength from hypoxia gate hA to proliferation/quiescence outputs.
-        bP = 2.9583     # Project output bias term for proliferative response pre-activation.
-        bQ = -0.5562    # Project output bias term for quiescent response pre-activation.
-        sAA = 9.3252    # Project-calibrated coupling from hypoxia gate hA to apoptosis output.
-        bA = 1.8945     # Project output bias term for apoptosis response pre-activation.
 
         # Hidden-to-output weight matrix (W) for the three life-cycle responses [P,Q,A].
         W_hidden_out = np.array([
@@ -244,14 +252,12 @@ class ArtificialNN:
         self.theta_hidden = theta_hidden
         self.phi_out = phi_out
         return
+    
+
 
     def copy(self) -> "ArtificialNN":
         '''
         Create a deep copy of ANN genotype arrays.
-
-        Params
-        -------
-        - None (None) : This method does not require additional parameters.
 
         Returns
         --------
@@ -290,10 +296,6 @@ class ArtificialNN:
         -------
         - p (Params) : Model parameters controlling mutation rate and variance.
         - rng (np.random.Generator) : Random generator used for mutation sampling.
-
-        Returns
-        --------
-        - None (None) : This method mutates genotype arrays in place.
         '''
         sizes = np.array(
             [
@@ -359,17 +361,14 @@ class SimulationModel:
     Simulate tumour growth with coupled cellular automaton and oxygen PDE dynamics.
     '''
 
-    def __init__(self, p: Params):
+    def __init__(self, p: Params, ann_params_dict: dict = None):
         '''
         Create simulation state and initialize the tumour seed.
 
         Params
         -------
         - p (Params) : Model parameters.
-
-        Returns
-        --------
-        - None (None) : Initializes internal simulation state.
+        - ann_params_dict (dict) : Optional ANN initialization parameters passed to `ArtificialNN`.
         '''
         self.p = p
         self.rng = np.random.default_rng(p.rng_seed)
@@ -387,7 +386,7 @@ class SimulationModel:
         self.ann = np.empty((N, N), dtype=object)
         self.ann.fill(None)
 
-        ann = ArtificialNN(p)
+        ann = ArtificialNN(p, ann_params_dict)
         self._seed_tumour(ann)
 
     def _seed_tumour(
@@ -400,10 +399,6 @@ class SimulationModel:
         Params
         -------
         - ann (ArtificialNN) : Baseline ANN genotype copied to seeded cells.
-
-        Returns
-        --------
-        - None (None) : Writes seeded state directly into model arrays.
         '''
         N = self.p.N
         cx = cy = N // 2
@@ -516,10 +511,6 @@ class SimulationModel:
         following this sequence: score computation, consumption check (necrosis), death/action,
         and division.
 
-        Params
-        -------
-        - None (None) : This method does not require additional parameters.
-
         Returns
         --------
         - summary_dict (Dict[str, float]) : Summary statistics of the current state with keys
@@ -626,25 +617,35 @@ class SimulationModel:
         '''
         Run simulation for all configured steps and collect basic trajectories.
 
-        Params
-        -------
-        - None (None) : This method does not require additional parameters.
-
         Returns
         --------
         - trajectories (Dict[str, np.ndarray]) : Time-series arrays for `"alive"`, `"necrotic"`,
           `"dead"`, and `"c_min"`.
         '''
         alive_ts = np.zeros(self.p.steps, dtype=np.int32)
+        prolif_ts = np.zeros(self.p.steps, dtype=np.int32)
+        quiesc_ts = np.zeros(self.p.steps, dtype=np.int32)
         nec_ts = np.zeros(self.p.steps, dtype=np.int32)
         dead_ts = np.zeros(self.p.steps, dtype=np.int32)
+        empty_ts = np.zeros(self.p.steps, dtype=np.int32)
         cmin_ts = np.zeros(self.p.steps, dtype=np.float32)
 
         for t in range(self.p.steps):
             out = self.step()
             alive_ts[t] = out["proliferating"] + out["quiescent"]
+            prolif_ts[t] = out["proliferating"]
+            quiesc_ts[t] = out["quiescent"]
             nec_ts[t] = out["necrotic"]
             dead_ts[t] = out["dead"]
+            empty_ts[t] = out["empty"]
             cmin_ts[t] = out["c_min"]
 
-        return {"alive": alive_ts, "necrotic": nec_ts, "dead": dead_ts, "c_min": cmin_ts}
+        return {
+            "alive": alive_ts,
+            "proliferating": prolif_ts,
+            "quiescent": quiesc_ts,
+            "necrotic": nec_ts,
+            "dead": dead_ts,
+            "empty": empty_ts,
+            "c_min": cmin_ts
+        }
