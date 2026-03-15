@@ -25,24 +25,24 @@ class Params:
 
     # Oxygen fields
     c0: float = 1.0                         # Paper c_0: fixed oxygen value at the domain boundary (main environmental control parameter).
-    Dc: float = 1.04                        # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
-    Dt: float = 5e-4                        # Paper Delta t: simulation time step used in the explicit oxygen update.
-    d: float = 0.05                         # Paper d: lattice spacing used by the finite-difference Laplacian.
+    Dc: float = 0.05                      # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
+    Dt: float = 0.2                        # Paper Delta t: simulation time step used in the explicit oxygen update.
+    d: float = 1.0                       # Paper d: lattice spacing used by the finite-difference Laplacian.
 
     # Uptake
-    rc: float = 124.7                       # Paper r_c: baseline oxygen consumption rate.
+    rc: float = 0.4                       # Paper r_c: baseline oxygen consumption rate.
     q: float = 5.0                          # Project simplification: quiescent-cell uptake scaling factor (uptake = r_c / q).
     Tr: float = 0.675                       # Paper T_r: response target/threshold in metabolic modulation F(R).
     k: float = 6.0                          # Paper k: slope (gain) of metabolic modulation F(R).
 
     # Life-cycle thresholds
     c_apoptosis_threshold: float = 0.15     # Project threshold for the hypoxia gate that drives apoptosis preference.
-    c_quiescence_threshold: float = 3       # Project crowding threshold (on Moore-neighbour count) used by the quiescence gate.
+    c_quiescence_threshold: float = 3.0     # Project crowding threshold (on Moore-neighbour count) used by the quiescence gate.
 
     # Cell cycle (hours)
-    Dt_age_inc: float = 16.0                # Project conversion from one CA update to biological hours for age accumulation.
-    Ap: float = 16.0                        # Paper A_p: mean proliferation age (cell-cycle duration) required before division.
-    Ap_s: float = 8.0                       # Project heterogeneity term: std dev used to sample per-cell proliferation age around A_p.
+    Dt_age_inc: float = 1.0                # Project conversion from one CA update to biological hours for age accumulation.
+    Ap: float = 1.0                        # Paper A_p: mean proliferation age (cell-cycle duration) required before division.
+    Ap_s: float = 0.5                       # Project heterogeneity term: std dev used to sample per-cell proliferation age around A_p.
 
     # Mutations
     p: float = 0.01                         # Paper p: mutation probability/rate of division (implemented as expected mutated fraction).
@@ -181,64 +181,126 @@ class ArtificialNN:
     W_hidden_out: np.ndarray
     theta_hidden: np.ndarray
     phi_out: np.ndarray
+    output_raw_order: Tuple[str, str, str]
 
-    def __init__(self, p: Params, ann_params_dict: dict = None):
+    def __init__(self, ann_params_dict: dict = None):
         '''
-        Initialize a baseline ANN genotype from model parameters.
+        Initialize a baseline ANN genotype from matrix-form ANN parameters.
 
         Params
         -------
-        - p (Params) : Model parameters.
-        - ann_params_dict (dict): parameters used to initialize the weights and biases of the ANN.
+        - ann_params_dict (dict): ANN matrix parameters with keys `w`, `W`, `theta`, `phi`.
         '''
+        self._init_from_matrix_params(ann_params_dict)
 
-        # Input vector x = [c, n], with n in [0,8] (Moore neighbors).
-        # Hidden nodes:
-        # hN: "crowding gate" active for n > 3.
-        # hA: "hypoxia gate" active for c < c_apoptosis_threshold.
-        # Output pre-activations:
-        # P = -sN*hN - sA*hA + bP
-        # Q = +sN*hN - sA*hA + bQ
-        # A =          sAA*hA - bA
-        k_n = float(ann_params_dict["k_n"])
-        k_c = float(ann_params_dict["k_c"])
-        sN = float(ann_params_dict["sN"])
-        sA = float(ann_params_dict["sA"])
-        sAA = float(ann_params_dict["sAA"])
-        bP = float(ann_params_dict["bP"])
-        bQ = float(ann_params_dict["bQ"])
-        bA = float(ann_params_dict["bA"])
+    def _default_ann_params(self) -> Dict[str, np.ndarray]:
+        '''
+        Provide default ANN matrices for the oxygen-only reduced ANN.
 
-        # Project crowding pivot for hN; derived from neighbour threshold used in this implementation
-        n0 = float(p.c_quiescence_threshold)
+        Architecture follows Appendix A equations with reduced dimensionality:
+        `epsilon = [n_neighbors, oxygen]`, `|hidden| = 3`, `|output| = 3`.
+        Raw output order is `[A, P, Q]`.
 
-        # Input-to-hidden weight matrix (w) for the minimal response network.
-        self.w_in_hidden = np.array([
-            [0.0, k_n],     # hN
-            [-k_c, 0.0],    # hA
-        ], dtype=np.float32)
+        Returns
+        --------
+        - defaults (Dict[str, np.ndarray]) : Default ANN parameter tensors.
+        '''
+        return {
+            "w": np.array(
+                [
+                    [1.0, 0.0],
+                    [0.5, 0.0],
+                    [0.0, -2.0],
+                ],
+                dtype=np.float32,
+            ),
+            "W": np.array(
+                [
+                    [0.0, 0.0, 2.0],      # A
+                    [-0.5, 1.0, -0.5],    # P
+                    [0.0, 0.55, -0.5],    # Q
+                ],
+                dtype=np.float32,
+            ),
+            "theta": np.array([0.55, 0.0, 0.7], dtype=np.float32),
+            "phi": np.array([0.0, 0.0, 0.0], dtype=np.float32),
+        }
 
-        # Hidden thresholds (theta) that set activation pivots for hN and hA.
-        self.theta_hidden = np.array([
-            k_n * n0,
-            -k_c * p.c_apoptosis_threshold,
-        ], dtype=np.float32)
+    def _init_from_matrix_params(self, ann_params_dict: dict = None) -> None:
+        '''
+        Validate and load ANN matrices from `(w, W, theta, phi)` parameters.
 
-        # Hidden-to-output weight matrix (W) for the three life-cycle responses [P,Q,A].
-        self.W_hidden_out = np.array([
-            [-sN, -sA],     # P
-            [sN, -sA],      # Q
-            [0.0, sAA],     # A
-        ], dtype=np.float32)
+        Params
+        -------
+        - ann_params_dict (dict): ANN matrix parameters with keys `w`, `W`, `theta`, `phi`.
+        '''
+        params = ann_params_dict if ann_params_dict is not None else self._default_ann_params()
 
-        # Output thresholds (phi), encoded as bias shifts in O = T(WV - phi).
-        self.phi_out = np.array([
-            -bP,            # P
-            -bQ,            # Q
-            bA,             # A
-        ], dtype=np.float32)
+        required_keys = ("w", "W", "theta", "phi")
+        missing_keys = [k for k in required_keys if k not in params]
+        if missing_keys:
+            raise ValueError(f"Missing ANN params {missing_keys}. Required keys: {required_keys}.")
 
-        return
+        w = np.asarray(params["w"], dtype=np.float32)
+        W = np.asarray(params["W"], dtype=np.float32)
+        theta = np.asarray(params["theta"], dtype=np.float32)
+        phi = np.asarray(params["phi"], dtype=np.float32)
+
+        if w.ndim != 2:
+            raise ValueError(f"`w` must be a 2D matrix. Got shape {w.shape}.")
+        if W.ndim != 2:
+            raise ValueError(f"`W` must be a 2D matrix. Got shape {W.shape}.")
+        if theta.ndim != 1:
+            raise ValueError(f"`theta` must be a 1D vector. Got shape {theta.shape}.")
+        if phi.ndim != 1:
+            raise ValueError(f"`phi` must be a 1D vector. Got shape {phi.shape}.")
+
+        expected_w_shape = (3, 2)
+        expected_W_shape = (3, 3)
+        expected_theta_shape = (3,)
+        expected_phi_shape = (3,)
+
+        if w.shape != expected_w_shape:
+            raise ValueError(f"`w` must have shape {expected_w_shape}. Got {w.shape}.")
+        if W.shape != expected_W_shape:
+            raise ValueError(f"`W` must have shape {expected_W_shape}. Got {W.shape}.")
+        if theta.shape != expected_theta_shape:
+            raise ValueError(f"`theta` must have shape {expected_theta_shape}. Got {theta.shape}.")
+        if phi.shape != expected_phi_shape:
+            raise ValueError(f"`phi` must have shape {expected_phi_shape}. Got {phi.shape}.")
+
+        output_raw_order = tuple(params.get("output_order", ("A", "P", "Q")))
+        valid_labels = {"A", "P", "Q"}
+        if len(output_raw_order) != 3 or set(output_raw_order) != valid_labels:
+            raise ValueError("Invalid `output_order`: expected a permutation of ('A', 'P', 'Q').")
+
+        if w.shape[0] != theta.shape[0]:
+            raise ValueError(f"Inconsistent ANN shapes: number of hidden units in `w` and `theta` do not match ({w.shape[0]} vs {theta.shape[0]}).")
+        if W.shape[1] != w.shape[0]:
+            raise ValueError(f"Inconsistent ANN shapes: `W` input width must match `w` hidden size ({W.shape[1]} vs {w.shape[0]}).")
+        if W.shape[0] != phi.shape[0]:
+            raise ValueError(f"Inconsistent ANN shapes: number of outputs in `W` and `phi` do not match ({W.shape[0]} vs {phi.shape[0]}).")
+            
+        self.w_in_hidden = w.copy()
+        self.W_hidden_out = W.copy()
+        self.theta_hidden = theta.copy()
+        self.phi_out = phi.copy()
+        self.output_raw_order = output_raw_order
+
+    def _build_input_vector(self, c_val: float, n_neigh: int) -> np.ndarray:
+        '''
+        Build reduced ANN input vector `epsilon = [n_neighbors, oxygen]`.
+
+        Params
+        -------
+        - c_val (float) : Local oxygen concentration.
+        - n_neigh (int) : Local occupied-neighbor count.
+
+        Returns
+        --------
+        - x (np.ndarray) : Reduced ANN input vector of shape `(2,)`.
+        '''
+        return np.array([float(n_neigh), c_val], dtype=np.float32)
     
 
 
@@ -255,11 +317,19 @@ class ArtificialNN:
         ann_copy.W_hidden_out = self.W_hidden_out.copy()
         ann_copy.theta_hidden = self.theta_hidden.copy()
         ann_copy.phi_out = self.phi_out.copy()
+        ann_copy.output_raw_order = tuple(self.output_raw_order)
         return ann_copy
 
     def forward(self, c_val: float, n_neigh: int) -> np.ndarray:
         '''
         Compute ANN action scores for one cellular microenvironment.
+
+        Appendix A reduced equations:
+        - `V_j = T(sum_k w_jk * epsilon_k - theta_j)`
+        - `O_i = T(sum_j W_ij * V_j - phi_i)`
+        with `T(x) = 1 / (1 + exp(-2x))`.
+        Raw ANN output order is read from `output_order` (default `[A, P, Q]`)
+        and then reordered to `[P, Q, A]` to match `SimulationModel.step()`.
 
         Params
         -------
@@ -270,14 +340,170 @@ class ArtificialNN:
         --------
         - out (np.ndarray) : Action scores for `[P, Q, A]` in `[0, 1]`.
         '''
-        x = np.array([c_val, float(n_neigh)], dtype=np.float32)
-        x = transfer_sigmoid(self.w_in_hidden @ x - self.theta_hidden)
-        x = transfer_sigmoid(self.W_hidden_out @ x - self.phi_out)
-        return x
+        epsilon = self._build_input_vector(c_val, n_neigh)
+        hidden = transfer_sigmoid(self.w_in_hidden @ epsilon - self.theta_hidden)
+        out_raw = transfer_sigmoid(self.W_hidden_out @ hidden - self.phi_out)
+
+        raw_by_label = {label: float(out_raw[i]) for i, label in enumerate(self.output_raw_order)}
+        out = np.array(
+            [raw_by_label["P"], raw_by_label["Q"], raw_by_label["A"]],
+            dtype=np.float32,
+        )
+        return out
+
+    def fit(
+        self,
+        X: np.ndarray,
+        y: np.ndarray,
+        lr: float = 0.05,
+        epochs: int = 200,
+        batch_size: int = 64,
+        rng_seed: int = 0,
+        verbose: bool = False,
+        early_stopping: bool = False,
+        es_threshold: float = 0.0001,
+        es_count_max: int = 10
+    ) -> Dict[str, np.ndarray]:
+        '''
+        Train ANN parameters on a labeled dataset using mini-batch gradient descent.
+
+        Input feature convention:
+        - `X[:, 0] = oxygen_concentration`
+        - `X[:, 1] = n_neighbors`
+
+        Label convention:
+        - `0 -> P`, `1 -> Q`, `2 -> A`
+
+        Training uses independent binary cross-entropy on raw outputs with
+        transfer `T(x)=1/(1+exp(-2x))` and backpropagation through all ANN
+        parameters `w`, `W`, `theta`, `phi`.
+
+        Params
+        -------
+        - X (np.ndarray) : Feature matrix with shape `(N, 2)`.
+        - y (np.ndarray) : Integer labels with shape `(N,)`.
+        - lr (float) : Learning rate.
+        - epochs (int) : Number of optimization epochs.
+        - batch_size (int) : Mini-batch size.
+        - rng_seed (int) : Shuffle seed for reproducibility.
+        - verbose (bool) : If True, print periodic loss values.
+        - early_stopping (bool): performs the early stopping (default False).
+        - es_count_max (int): is the max number of iteration in which the loss gain is lower than es_theshold.
+        - es_threshold (float): is the amount of minimum gain need for the loss to avoid the early stopping case.
+
+        Returns
+        --------
+        - history (Dict[str, np.ndarray]) : Training history with key `"loss"`.
+        '''
+        X = np.asarray(X, dtype=np.float32)
+        y = np.asarray(y, dtype=np.int64).reshape(-1)
+
+        if X.ndim != 2 or X.shape[1] != 2:
+            raise ValueError(f"`X` must have shape (N, 2). Got {X.shape}.")
+        if y.ndim != 1:
+            raise ValueError(f"`y` must be 1D. Got shape {y.shape}.")
+        if X.shape[0] != y.shape[0]:
+            raise ValueError(
+                f"Inconsistent dataset sizes: X has {X.shape[0]} rows while y has {y.shape[0]}."
+            )
+        if np.any((y < 0) | (y > 2)):
+            raise ValueError("`y` labels must be in {0, 1, 2} for [P, Q, A].")
+        if lr <= 0.0:
+            raise ValueError(f"`lr` must be > 0. Got {lr}.")
+        if epochs <= 0:
+            raise ValueError(f"`epochs` must be > 0. Got {epochs}.")
+        if batch_size <= 0:
+            raise ValueError(f"`batch_size` must be > 0. Got {batch_size}.")
+
+        n_samples = X.shape[0]
+        batch_size = int(min(batch_size, n_samples))
+        rng = np.random.default_rng(rng_seed)
+        losses = np.zeros(epochs, dtype=np.float32)
+
+        label_to_output = {0: "P", 1: "Q", 2: "A"}
+        raw_idx = {label: i for i, label in enumerate(self.output_raw_order)}
+        eps_loss = 1e-7
+
+        for epoch in range(epochs):
+            order = rng.permutation(n_samples)
+            epoch_loss = 0.0
+
+            for start in range(0, n_samples, batch_size):
+                idx = order[start:start + batch_size]
+                xb = X[idx]
+                yb = y[idx]
+                bsz = xb.shape[0]
+
+                grad_w = np.zeros_like(self.w_in_hidden, dtype=np.float32)
+                grad_W = np.zeros_like(self.W_hidden_out, dtype=np.float32)
+                grad_theta = np.zeros_like(self.theta_hidden, dtype=np.float32)
+                grad_phi = np.zeros_like(self.phi_out, dtype=np.float32)
+                batch_loss = 0.0
+                batch_loss_prec = 0.0
+
+                for sample, label_int in zip(xb, yb):
+                    c_val = float(sample[0])
+                    n_neigh = int(sample[1])
+
+                    epsilon = self._build_input_vector(c_val, n_neigh)
+                    z_hidden = self.w_in_hidden @ epsilon - self.theta_hidden
+                    hidden = transfer_sigmoid(z_hidden)
+
+                    z_out = self.W_hidden_out @ hidden - self.phi_out
+                    out_raw = transfer_sigmoid(z_out)
+
+                    target = np.zeros(3, dtype=np.float32)
+                    target_idx = raw_idx[label_to_output[int(label_int)]]
+                    target[target_idx] = 1.0
+
+                    batch_loss_prec = batch_loss
+                    batch_loss += float(-np.sum(target * np.log(out_raw + eps_loss) + (1.0 - target) * np.log(1.0 - out_raw + eps_loss)))
+
+                    dL_dz_out = out_raw - target
+                    grad_W += np.outer(dL_dz_out, hidden)
+                    grad_phi += -dL_dz_out
+
+                    dL_dhidden = self.W_hidden_out.T @ dL_dz_out
+                    dT_hidden = 2.0 * hidden * (1.0 - hidden)
+                    dL_dz_hidden = dL_dhidden * dT_hidden
+
+                    grad_w += np.outer(dL_dz_hidden, epsilon)
+                    grad_theta += -dL_dz_hidden
+
+                    if early_stopping and abs(batch_loss_prec - batch_loss) < es_threshold:
+                        es_count += 1
+                    else:
+                        es_count = 0
+                    if es_count > es_count_max:
+                        break
+
+                inv_bsz = 1.0 / float(bsz)
+                self.w_in_hidden -= lr * grad_w * inv_bsz
+                self.W_hidden_out -= lr * grad_W * inv_bsz
+                self.theta_hidden -= lr * grad_theta * inv_bsz
+                self.phi_out -= lr * grad_phi * inv_bsz
+
+                epoch_loss += batch_loss
+
+                if es_count > es_count_max:
+                        break
+
+            losses[epoch] = np.float32(epoch_loss / float(n_samples))
+            if es_count > es_count_max:
+                print(f"Epoch {epoch + 1:4d}/{epochs}, loss={losses[epoch]:.6f} [early stopping]")
+                break
+            if verbose and (epoch == 0 or (epoch + 1) % 10 == 0 or epoch == epochs - 1):
+                print(f"Epoch {epoch + 1:4d}/{epochs}, loss={losses[epoch]:.6f}")
+
+        return {"loss": losses}
 
     def mutate_inplace(self, p: Params, rng: np.random.Generator) -> None:
         '''
-        Apply Poisson-Gaussian mutations to ANN genotype in place.
+        Apply Appendix A per-parameter mutations to ANN genotype in place.
+
+        For each parameter `omega_i`, mutation is:
+        - `omega_i' = omega_i + m_i * xi_i`
+        - `m_i ~ Bernoulli(p)` and `xi_i ~ N(0, sigma^2)`.
 
         Params
         -------
@@ -297,15 +523,6 @@ class ArtificialNN:
         if total_entries == 0:
             return
 
-        # p is interpreted as expected fraction of entries mutated per division.
-        n_mut = int(rng.poisson(p.p * total_entries))
-        if n_mut <= 0:
-            return
-
-        n_mut = min(n_mut, total_entries)
-        mut_idx = rng.choice(total_entries, size=n_mut, replace=False)
-        noise = rng.normal(0.0, p.s, size=n_mut).astype(np.float32)
-
         flat = np.concatenate(
             [
                 self.w_in_hidden.ravel(),
@@ -314,7 +531,13 @@ class ArtificialNN:
                 self.phi_out.ravel(),
             ]
         ).astype(np.float32, copy=False)
-        flat[mut_idx] += noise
+
+        mut_mask = rng.random(total_entries) < p.p
+        if not np.any(mut_mask):
+            return
+
+        noise = rng.normal(0.0, p.s, size=total_entries).astype(np.float32)
+        flat[mut_mask] += noise[mut_mask]
 
         c0 = sizes[0]
         c1 = c0 + sizes[1]
@@ -369,11 +592,11 @@ class SimulationModel:
         self.c = np.full((N, N), p.c0, dtype=np.float32)
         set_dirichlet_boundary(self.c, p.c0)
 
-        # Each living cell can carry one ANN genotype instance (None for non-living cells).
+        # Each alive cell can carry one ANN genotype instance (None for non-alive cells).
         self.ann = np.empty((N, N), dtype=object)
         self.ann.fill(None)
 
-        ann = ArtificialNN(p, ann_params_dict)
+        ann = ArtificialNN(ann_params_dict)
         self._seed_tumour(ann)
 
     def _seed_tumour(
@@ -381,25 +604,25 @@ class SimulationModel:
         ann: ArtificialNN,
     ) -> None:
         '''
-        Seed a circular initial tumour at lattice center.
+        Seed a circular initial tumour at lattice center of 2x2 dim.
 
         Params
         -------
         - ann (ArtificialNN) : Baseline ANN genotype copied to seeded cells.
         '''
         N = self.p.N
-        cx = cy = N // 2
-        rr = self.p.seed_radius
-        for i in range(N):
-            for j in range(N):
-                if (i - cx) ** 2 + (j - cy) ** 2 <= rr ** 2:
-                    self.state[i,j] = PROLIFERATING
-                    self.age_hours[i,j] = 0.0
-                    self.prolif_age_hours[i,j] = max(
-                        1e-3,
-                        float(self.rng.normal(self.p.Ap, self.p.Ap_s))
-                    )
-                    self.ann[i,j] = ann.copy()
+        cx = cy = (N // 2) - 1
+        for i in range(2):
+            for j in range(2):
+                row = cx+i
+                col = cy+j
+                self.state[row,col] = PROLIFERATING
+                self.age_hours[row,col] = 0.0
+                self.prolif_age_hours[row,col] = max(
+                    1e-3,
+                    float(self.rng.normal(self.p.Ap, self.p.Ap_s))
+                )
+                self.ann[row,col] = ann.copy()
 
     def _uptake_alpha(self, action_map: np.ndarray, F_map: np.ndarray) -> np.ndarray:
         '''
@@ -414,9 +637,9 @@ class SimulationModel:
         --------
         - alpha (np.ndarray) : Oxygen uptake coefficients for the PDE update.
         '''
-        living = (self.state == PROLIFERATING) | (self.state == QUIESCENT)
-        quiescence = living & (action_map == 1)
-        proliferation = living & (action_map == 0)
+        alive = (self.state == PROLIFERATING) | (self.state == QUIESCENT)
+        quiescence = alive & (action_map == 1)
+        proliferation = alive & (action_map == 0)
         alpha = np.zeros_like(self.c, dtype=np.float32)
         alpha[proliferation] = self.p.rc * F_map[proliferation]
         alpha[quiescence] = (self.p.rc / self.p.q) * F_map[quiescence]
@@ -424,7 +647,7 @@ class SimulationModel:
 
     def _alive_indices_shuffled(self) -> np.ndarray:
         '''
-        Return shuffled coordinates of living cells.
+        Return shuffled coordinates of alive cells.
 
         Params
         -------
@@ -432,7 +655,7 @@ class SimulationModel:
 
         Returns
         --------
-        - coords (np.ndarray) : Shuffled living-cell coordinates with shape `(M, 2)`.
+        - coords (np.ndarray) : Shuffled alive-cell coordinates with shape `(M, 2)`.
         '''
         coords = np.argwhere((self.state == PROLIFERATING) | (self.state == QUIESCENT))
         self.rng.shuffle(coords)
@@ -452,16 +675,12 @@ class SimulationModel:
         - neighbors (Tuple[Tuple[int, int], ...]) : Available neighbor coordinates.
         '''
         N = self.p.N
-        neigh = []
+        neighborhood = []
         for di, dj in ((-1,0), (1,0), (0,-1), (0,1)):
             ni, nj = i + di, j + dj
-            if (
-                (0 <= ni < N)
-                and (0 <= nj < N)
-                and (self.state[ni,nj] == EMPTY or self.state[ni,nj] == DEAD)
-            ):
-                neigh.append((ni,nj))
-        return tuple(neigh)
+            if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == EMPTY or self.state[ni,nj] == DEAD):
+                neighborhood.append((ni,nj))
+        return tuple(neighborhood)
 
     def _moore_neighbor_count_at(self, i: int, j: int) -> int:
         '''
@@ -477,20 +696,39 @@ class SimulationModel:
         - count (int) : Occupied-neighbor count in `[0, 8]`.
         '''
         N = self.p.N
-        c = 0
+        count = 0
         for di in (-1, 0, 1):
             for dj in (-1, 0, 1):
                 if di == 0 and dj == 0:
                     continue
                 ni = (i + di) % N
                 nj = (j + dj) % N
-                if (
-                    self.state[ni, nj] == PROLIFERATING
-                    or self.state[ni, nj] == QUIESCENT
-                    or self.state[ni, nj] == NECROTIC
-                ):
-                    c += 1
-        return c
+                if self.state[ni,nj] == PROLIFERATING or self.state[ni,nj] == QUIESCENT or self.state[ni,nj] == NECROTIC:
+                    count += 1
+        return count
+    
+    def _von_neumann_neighbors_count(self, i: int, j: int):
+        '''
+        Count occupied Von Neumann neighbors around one lattice site.
+
+        Params
+        -------
+        - i (int) : Row index of the reference cell.
+        - j (int) : Column index of the reference cell.
+
+        Returns
+        --------
+        - count (int) : Occupied-neighbor count in `[0, 3]`.
+        '''
+        N = self.p.N
+        count = 0
+        for di, dj in ((-1,0), (1,0), (0,-1), (0,1)):
+            if di == 0 and dj == 0:
+                continue
+            ni, nj = i + di, j + dj
+            if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == PROLIFERATING or self.state[ni,nj] == QUIESCENT or self.state[ni,nj] == NECROTIC):
+                count += 1
+        return count
 
     def step(self) -> Dict[str, float]:
         '''
@@ -509,84 +747,74 @@ class SimulationModel:
         # Lattice with the returned metabolic modulation factor value per cell
         F_map = np.zeros((N, N), dtype=np.float32)
 
-        # Iterates over each living (PROLIFERATING/QUIESCENT) and shuffled cells coordinates
-        # Steps per iteration: scores computation -> consumption check (necrosis) -> death/action -> division.
+        # Iterates over each alive (PROLIFERATING/QUIESCENT) and shuffled cells coordinates
+        # Steps per iteration: scores computation -> consumption check (necrosis) -> death/action -> mitosis.
         coords = self._alive_indices_shuffled()
         for (i,j) in coords:
             if self.state[i,j] != PROLIFERATING and self.state[i,j] != QUIESCENT:
                 continue
 
             # Defensive guard: alive cells should always have an ANN
-            ann_ij = self.ann[i,j]
+            ann_ij: ArtificialNN = self.ann[i,j]
             if ann_ij is None:
                 continue
 
-            # Compute the number of neighbors (non-empty cells in Moore neighborhood)
-            n_ij = self._moore_neighbor_count_at(i,j)
+            # Compute the inputs for the ANN
+            n_ij = self._von_neumann_neighbors_count(i,j)
+            c_ij = float(self.c[i,j])
 
-            # Compute the forward pass to get actions' scores (to choose the action with highest score)
-            scores = ann_ij.forward(float(self.c[i,j]), n_ij)
-            action = int(np.argmax(scores))
+            # 1. Compute the forward pass to get the action as output
+            scores = ann_ij.forward(c_ij, n_ij)
+            action_idx = int(np.argmax(scores))
+            action = 'P' if action_idx == 0 else 'Q' if action_idx == 1 else 'A'
 
-            # Apply the metabolic modulation factor F to the chosen action's score
-            F_ij = F(float(scores[action]), self.p)
-            action_map[i,j] = np.int8(action)
+            R = float(scores[action_idx]) # response value
+            F_ij = F(R, self.p) # metabolic modulation factor F
+            action_map[i,j] = np.int8(action_idx)
             F_map[i,j] = np.float32(F_ij)
 
-            # Demand of oxygen depends on the action taken
-            demand_ij = 0.0
-            if action == 0: # action = P
-                demand_ij = self.p.rc * F_ij * self.p.Dt
-            elif action == 1: # action = Q
-                demand_ij = (self.p.rc / self.p.q) * F_ij * self.p.Dt
-
-            # Necrotic case (oxygen available < demand)
-            if action != 2 and float(self.c[i,j]) < demand_ij:
+            # 2. Nutrients consumption
+            self.age_hours[i,j] += self.p.Dt_age_inc * F_ij # age increment
+            oxygen_demand_ij = 0.0
+            if action == 'P':
+                oxygen_demand_ij = self.p.rc * F_ij * self.p.Dt
+            elif action == 'Q':
+                oxygen_demand_ij = (self.p.rc / self.p.q) * F_ij * self.p.Dt
+            
+            # 3. Apoptosis case
+            if action == 'A':
+                self.state[i,j] = DEAD
+                self.ann[i,j] = None
+                action_map[i,j] = np.int8(-1)
+                F_map[i,j] = np.float32(0.0)
+                continue
+            
+            # 4. Necrosis case (oxygen available < oxygen demand)
+            if c_ij < oxygen_demand_ij:
                 self.state[i,j] = NECROTIC
                 self.ann[i,j] = None
                 action_map[i,j] = np.int8(-1)
                 F_map[i,j] = np.float32(0.0)
                 continue
 
-            # Apoptosis case (action = A)
-            if action == 2:
-                self.state[i,j] = DEAD
-                self.ann[i,j] = None
-                action_map[i,j] = np.int8(-1)
-                F_map[i,j] = np.float32(0.0)
+            # 6. Proliferation case (mitosis)
+            if action == 'P' and self.age_hours[i,j] >= self.prolif_age_hours[i,j] and n_ij < 4:
+                self.state[i,j] = QUIESCENT
+                empties = self._von_neumann_empty_neighbors(i, j)
+                # Create the daughter cell
+                ni, nj = empties[self.rng.integers(0, len(empties))]
+                self.state[ni,nj] = PROLIFERATING
+                self.ann[ni,nj] = ann_ij.mutated_copy(self.p, self.rng)
+                self.age_hours[ni,nj] = 0.0
+                self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
                 continue
 
-            # Quiescence case (action = Q)
-            if action == 1:
+            # 5. Quiescence case
+            if action == 'Q':
                 self.state[i,j] = QUIESCENT
                 continue
 
-            # Proliferation case (action = P)
-            self.state[i,j] = PROLIFERATING
-
-            # Proliferation-age increment
-            self.age_hours[i,j] += self.p.Dt_age_inc * F_ij
-            if self.age_hours[i,j] < self.prolif_age_hours[i,j]:
-                continue
-            
-            # Division phase - if no empty Von Neumann neighbors, cell becomes Quiescent instead of Proliferating
-            empties = self._von_neumann_empty_neighbors(i, j)
-            if not empties:
-                self.state[i,j] = QUIESCENT
-                self.age_hours[i,j] = 0.0
-                continue
-
-            # Choose randomly an empty neighbor to place the daughter cell
-            ni, nj = empties[self.rng.integers(0, len(empties))]
-            self.state[ni,nj] = PROLIFERATING
-            self.ann[ni,nj] = ann_ij.mutated_copy(self.p, self.rng)
-            self.age_hours[ni,nj] = 0.0
-            self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
-
-            self.age_hours[i,j] = 0.0
-            self.prolif_age_hours[i,j] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
-
-        # Oxygen PDE update from effective actions taken in this CA step.
+        # Oxygen PDE update from effective actions taken in this CA step
         alpha = self._uptake_alpha(action_map, F_map)
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
 
@@ -606,7 +834,7 @@ class SimulationModel:
 
         Params
         -------
-        - track_diversity (bool) : If True, compute Shannon diversity over living-cell genotypes.
+        - track_diversity (bool) : If True, compute Shannon diversity over alive-cell genotypes.
 
         Returns
         --------

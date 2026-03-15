@@ -1,6 +1,7 @@
+import json
 from pathlib import Path
 from dataclasses import fields
-from typing import Dict
+from typing import Dict, Tuple
 from matplotlib.animation import FuncAnimation
 from matplotlib.colors import ListedColormap, BoundaryNorm
 from matplotlib.patches import Patch
@@ -146,8 +147,121 @@ def get_params_from_env(filepath: str) -> dict:
         else:
             params_kwargs[field.name] = field.default
 
-    # Return complete parameter mapping.
     return params_kwargs
+
+
+def get_rule_based_label(
+    oxygen_concentration: float,
+    n_neighbors: int,
+    p: Params,
+) -> int:
+    '''
+    Assign ANN class label from a simple rule-based policy.
+
+    Label mapping is:
+    - `0 -> P` (proliferation)
+    - `1 -> Q` (quiescence)
+    - `2 -> A` (apoptosis)
+
+    Params
+    -------
+    - oxygen_concentration (float) : Local oxygen value.
+    - n_neighbors (int) : Local neighbor count.
+    - p (Params) : Simulation parameters with rule thresholds.
+
+    Returns
+    --------
+    - label (int) : Rule-based class label in `{0, 1, 2}`.
+    '''
+    if float(oxygen_concentration) < float(p.c_apoptosis_threshold):
+        return 2  # A
+
+    if int(n_neighbors) < int(p.c_quiescence_threshold):
+        return 0  # P
+
+    return 1  # Q
+
+
+def generate_random_ann_dataset(
+    p: Params,
+    n_samples: int,
+    rng_seed: int = 0,
+    oxygen_min: float = 0.0,
+    oxygen_max: float = 1.0,
+    n_neighbors_min: int = 0,
+    n_neighbors_max: int = 4,
+) -> Tuple[np.ndarray, np.ndarray]:
+    '''
+    Build a random supervised dataset for ANN pretraining.
+
+    Features use two columns in this order:
+    - `X[:, 0] = oxygen_concentration` in `[oxygen_min, oxygen_max]`
+    - `X[:, 1] = n_neighbors` in `[n_neighbors_min, n_neighbors_max]`
+
+    Targets are rule-based labels from `get_rule_based_label`:
+    - `0 -> P`, `1 -> Q`, `2 -> A`.
+
+    Params
+    -------
+    - p (Params) : Parameter object used by rule-based labeling.
+    - n_samples (int) : Number of random samples to generate.
+    - rng_seed (int) : Random seed for reproducibility.
+    - oxygen_min (float) : Minimum oxygen value.
+    - oxygen_max (float) : Maximum oxygen value.
+    - n_neighbors_min (int) : Minimum neighbor count.
+    - n_neighbors_max (int) : Maximum neighbor count (inclusive).
+
+    Returns
+    --------
+    - X (np.ndarray) : Feature matrix with shape `(n_samples, 2)`.
+    - y (np.ndarray) : Integer labels with shape `(n_samples,)`.
+    '''
+    if n_samples <= 0:
+        raise ValueError(f"`n_samples` must be > 0. Got {n_samples}.")
+    if oxygen_max < oxygen_min:
+        raise ValueError(
+            f"`oxygen_max` must be >= `oxygen_min`. Got {oxygen_max} < {oxygen_min}."
+        )
+    if n_neighbors_max < n_neighbors_min:
+        raise ValueError(
+            "`n_neighbors_max` must be >= `n_neighbors_min`. "
+            f"Got {n_neighbors_max} < {n_neighbors_min}."
+        )
+
+    rng = np.random.default_rng(rng_seed)
+    oxygen = rng.uniform(oxygen_min, oxygen_max, size=n_samples).astype(np.float32)
+    neighbors = rng.integers(
+        n_neighbors_min, n_neighbors_max + 1, size=n_samples, dtype=np.int32
+    )
+
+    X = np.zeros((n_samples, 2), dtype=np.float32)
+    X[:, 0] = oxygen
+    X[:, 1] = neighbors.astype(np.float32)
+
+    y = np.zeros(n_samples, dtype=np.int8)
+    for i in range(n_samples):
+        y[i] = np.int8(get_rule_based_label(oxygen[i], int(neighbors[i]), p))
+
+    return X, y
+
+
+def load_ann_params_from_env(filepath: str = ".env_ann_params") -> dict:
+    env = {}
+    for raw in Path(filepath).read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        env[k.strip()] = v.strip()
+
+    ann_params = {
+        "w": json.loads(env["w"]),
+        "W": json.loads(env["W"]),
+        "theta": json.loads(env["theta"]),
+        "phi": json.loads(env["phi"]),
+        "output_order": json.loads(env.get("output_order", '["A","P","Q"]')),
+    }
+    return ann_params
 
 
 def create_animation(sim: SimulationModel, p: Params):
@@ -220,19 +334,23 @@ def create_animation(sim: SimulationModel, p: Params):
 
 
 def plot_stability_curve(p: Params):
-    Dt_max = (p.d * p.d) / (4.0 * p.Dc)
-    Dc_max = (p.d * p.d) / (4.0 * p.Dt)
+    Dt_crit = (p.d ** 2) / (4.0 * p.Dc)
+    Dc_crit = (p.d ** 2) / (4.0 * p.Dt)
 
-    Ds = np.linspace(0.005, 0.2, 200)
+    # Range dinamico centrato sui valori rilevanti
+    dc_min = max(1e-6, 0.2 * min(p.Dc, Dc_crit))
+    dc_max = 2.0 * max(p.Dc, Dc_crit)
+
+    Ds = np.linspace(dc_min, dc_max, 400)
     Dt_max_curve = (p.d * p.d) / (4.0 * Ds)
 
     # PDE stability (CFL check)
-    ok_nok_str = 'OK' if p.Dt <= Dt_max else f'UNSTABLE'
+    ok_nok_str = 'OK' if p.Dt <= Dt_crit else f'UNSTABLE'
     print(f"PDE stability: Dt <= d^2/(4Dc) --> {ok_nok_str}")
     if ok_nok_str == 'UNSTABLE':
         print(f"\t{p.Dt} <= {p.d * p.d / (4.0 * p.Dc)}")
     elif ok_nok_str == 'OK':
-        print(f"\t{p.Dt} <= {Dt_max:.3g}")
+        print(f"\t{p.Dt} <= {Dt_crit:.3g}")
 
     # Show stability margin curve
     plt.figure()
