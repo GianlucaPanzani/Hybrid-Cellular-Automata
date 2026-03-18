@@ -1,0 +1,408 @@
+% !TeX program = pdflatex
+\documentclass[10pt,aspectratio=169]{beamer}
+
+% ===== Theme and visual setup =====
+\usetheme{Madrid}
+\usecolortheme{default}
+\setbeamertemplate{navigation symbols}{}
+\setbeamersize{text margin left=0.9cm,text margin right=0.9cm}
+\setbeamertemplate{blocks}[rounded][shadow=true]
+
+% ===== Packages =====
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[english]{babel}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{hyperref}
+
+% ===== Metadata =====
+\title[Hybrid CA: Paper + Implementation]{Hybrid Cellular Automata for Avascular Tumour Growth\\Paper Analysis and Project Implementation}
+\author{Gianluca Panzani}
+\institute{University of Pisa - Computer Science AI}
+\date{\today}
+
+% ===== Section page and header/footer =====
+\setbeamertemplate{section page}{
+  \centering
+  \vfill
+  {\LARGE\bfseries \insertsectionhead\par}
+  \vfill
+}
+\AtBeginSection{\begin{frame}[plain]\sectionpage\end{frame}}
+
+\setbeamertemplate{headline}{
+  \leavevmode
+  \hbox{
+    \begin{beamercolorbox}[wd=\paperwidth,ht=2.4ex,dp=1.1ex,left]{section in head/foot}
+      \hspace{0.8em}\insertsectionhead
+    \end{beamercolorbox}
+  }
+}
+
+\setbeamertemplate{footline}{
+  \leavevmode
+  \hbox{
+    \begin{beamercolorbox}[wd=.86\paperwidth,ht=2.4ex,dp=1.1ex,left]{author in head/foot}
+      \hspace{0.8em}\insertshorttitle
+    \end{beamercolorbox}
+    \begin{beamercolorbox}[wd=.14\paperwidth,ht=2.4ex,dp=1.1ex,right]{date in head/foot}
+      \insertframenumber/\inserttotalframenumber\hspace{0.8em}
+    \end{beamercolorbox}
+  }
+}
+
+\begin{document}
+
+% ===== Title slide =====
+\begin{frame}[plain,noframenumbering]
+  \titlepage
+  \vspace{-0.4em}
+  \begin{center}
+    {\large Computational Models for Complex Systems}
+  \end{center}
+\end{frame}
+
+% ===== Agenda slide =====
+\begin{frame}[c]{Talk structure}
+\normalsize
+\begin{block}{Part I - Paper (Gerlee \& Anderson, 2007)}
+\begin{itemize}
+  \item Paper goal
+  \item Modeling workflow
+  \item Architecture and equations
+  \item Main results
+\end{itemize}
+\end{block}
+
+\begin{block}{Part II - Our implementation}
+\begin{itemize}
+  \item Implementation in \texttt{model.py}
+  \item ANN training and default-weight issue
+  \item Multi-seed protocol in \texttt{sim\_over\_multiple\_seed.ipynb}
+  \item Results and differences vs paper
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Paper section =====
+\section{Paper: Gerlee \& Anderson (2007)}
+
+% ===== Slide: paper goal =====
+\begin{frame}[c]{Paper goal}
+\begin{block}{Main objective}
+\begin{itemize}
+  \item Model avascular tumour growth with explicit clonal evolution.
+  \item Study how oxygen availability changes morphology, growth, and phenotype selection.
+\end{itemize}
+\end{block}
+
+\begin{block}{Core modeling idea}
+\begin{itemize}
+  \item Each cell has an evolvable ANN-based response policy.
+  \item Cell division introduces mutations in ANN parameters.
+  \item Competition for resources creates eco-evolutionary selection.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: workflow =====
+\begin{frame}[c]{Modeling workflow in the paper}
+\begin{block}{Hybrid architecture}
+\begin{itemize}
+  \item Discrete layer: cellular automaton on a lattice (one cell per site).
+  \item Continuous layer: reaction-diffusion fields (oxygen, glucose, hydrogen ions).
+  \item Bidirectional coupling between CA decisions and PDE source/sink terms.
+\end{itemize}
+\end{block}
+
+\begin{block}{Simulation cycle}
+\begin{itemize}
+  \item Solve fields on the grid.
+  \item For each cell: evaluate ANN, select action, apply rules.
+  \item Update uptake/production and move to next step.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: dynamic system =====
+\begin{frame}[c]{Dynamic model as a coupled system}
+\small
+\begin{block}{Full paper formulation (conceptual system)}
+\[
+\begin{cases}
+\partial_t c = D_c\Delta c - f_c(s,R),\\
+\partial_t g = D_g\Delta g - f_g(s,R),\\
+\partial_t h = D_h\Delta h + f_h(s,R),\\
+V_j = T\!\left(\sum_k w_{jk}x_k-\theta_j\right),\quad
+O_i = T\!\left(\sum_j W_{ij}V_j-\phi_i\right),\\
+A_{ij}(t)=\arg\max\{O_P,O_Q,O_A\},\\
+s_{ij}(t+\Delta t)=\mathcal{U}\big(s_{ij}(t),A_{ij}(t),\mathcal{N}_{ij}(t),c,g,h\big),\\
+\omega_{\text{child}}=\omega_{\text{parent}}+m\odot\xi,
+\;m_k\sim\mathrm{Bernoulli}(p),\;\xi_k\sim\mathcal N(0,\sigma^2).
+\end{cases}
+\]
+\end{block}
+
+\begin{alertblock}{Metabolic modulation (paper Eq. 1)}
+\[
+F(R)=\max\big(k(R-T_r)+1,\,0.25\big).
+\]
+\end{alertblock}
+\end{frame}
+
+% ===== Slide: non-dimensionalization =====
+\begin{frame}[c]{Non-dimensionalization used in the paper}
+\small
+\begin{block}{Change of variables}
+\[
+\tilde{x}=\frac{x}{L},\qquad
+\tilde{t}=\frac{t}{\tau},\qquad
+\tilde{c}=\frac{c}{c_0},\qquad
+\tilde{g}=\frac{g}{g_0},\qquad
+\tilde{h}=\frac{h}{h_0}.
+\]
+\end{block}
+
+\begin{block}{Non-dimensional parameters}
+\[
+\tilde{D}_i=\frac{D_i\tau}{L^2},\qquad
+\tilde{r}_c=\frac{\tau n_0 r_c}{c_0},\qquad
+\tilde{r}_g=\frac{\tau n_0 r_g}{g_0},\qquad
+\tilde{r}_h=\frac{\tau n_0 r_h}{h_0}.
+\]
+\begin{itemize}
+  \item In the paper, simulations are run in these non-dimensional variables.
+  \item In our project, parameters such as \texttt{c0}, \texttt{Dc}, \texttt{Dt}, \texttt{d}, \texttt{rc} are used in this normalized setting.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: paper protocol =====
+\begin{frame}[c]{Paper simulation protocol and outputs}
+\begin{block}{Protocol}
+\begin{itemize}
+  \item Grid size $N=400$, initial seed of 4 central cells.
+  \item Oxygen conditions: $c_0$, $c_0/2.5$, $c_0/10$.
+  \item 20 stochastic runs per condition.
+  \item Main paper plots focus on the reduced oxygen-driven subsystem.
+\end{itemize}
+\end{block}
+
+\begin{block}{Measured outputs}
+\begin{itemize}
+  \item Total tumour cells (alive + dead).
+  \item Invasive distance from tumour center.
+  \item Shannon diversity index:
+  \[
+  H(t)=-\sum_k p_k(t)\log p_k(t).
+  \]
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: paper results growth =====
+\begin{frame}[c]{Paper results: growth and morphology}
+\begin{block}{Observed regimes}
+\begin{itemize}
+  \item $c_0/10$: early hypoxia and fingered morphology.
+  \item $c_0/2.5$: delayed death onset and weaker fingering.
+  \item $c_0$: rounder growth with necrotic core + viable rim.
+\end{itemize}
+\end{block}
+
+\begin{exampleblock}{Reference quantitative scale at $t=100$ (paper discussion)}
+\[
+N_{c_0}\approx 5\times 10^4,
+\qquad
+N_{c_0/10}\approx 1\times 10^4.
+\]
+\end{exampleblock}
+\end{frame}
+
+% ===== Slide: paper results evolution =====
+\begin{frame}[c]{Paper results: evolutionary dynamics}
+\begin{block}{Shannon trend}
+\begin{itemize}
+  \item $c_0/10$: rapid increase up to $H\approx 0.9$, then slow decrease.
+  \item $c_0$: slower increase, later convergence around $H\approx 0.8$.
+\end{itemize}
+\end{block}
+
+\begin{block}{Phenotype shift (Table 4 in paper)}
+\begin{itemize}
+  \item Initial response vector $(P,Q,A)=(0.67,0.18,0.15)$.
+  \item Evolved at $c_0$: $(0.68,0.17,0.15)$, consumption $\approx 1.00$.
+  \item Evolved at $c_0/10$: $(0.83,0.11,0.06)$, consumption $\approx 1.14$.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Project section =====
+\section{Our Project Implementation}
+
+% ===== Slide: implementation overview =====
+\begin{frame}[c]{How we implemented the model (\texttt{model.py})}
+\small
+\begin{block}{Implemented model scope}
+\begin{itemize}
+  \item Oxygen-only reduced model.
+  \item States: \texttt{EMPTY}, \texttt{PROLIFERATING}, \texttt{QUIESCENT}, \texttt{NECROTIC}, \texttt{DEAD}.
+  \item ANN input reduced to $\epsilon=[n_{\text{neighbors}}, c]$.
+\end{itemize}
+\end{block}
+
+\begin{block}{Numerical update in code}
+\[
+\begin{cases}
+\text{ANN forward} \rightarrow \text{action }(P,Q,A),\\
+\text{age update with }F(R),\\
+\text{apoptosis / necrosis / proliferation rules},\\
+c^{t+\Delta t}=c^t+\Delta t\big(D_c\Delta c-\alpha\big),\; c\ge 0.
+\end{cases}
+\]
+\end{block}
+\end{frame}
+
+% ===== Slide: default parameters =====
+\begin{frame}[c]{Default parameters used in our implementation}
+\tiny
+\begin{block}{\texttt{Params} defaults from \texttt{model.py}}
+\centering
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.32\textwidth}>{\raggedright\arraybackslash}p{0.64\textwidth}}
+\toprule
+Group & Values \\
+\midrule
+Lattice/runtime & $N=400$, \texttt{seed\_radius}$=4$, \texttt{steps}$=200$, \texttt{rng\_seed}$=0$ \\
+Oxygen field & $c_0=1.0$, $D_c=0.05$, $\Delta t=0.2$, $d=1.0$ \\
+Uptake/modulation & $r_c=0.4$, $q=5.0$, $T_r=0.675$, $k=6.0$ \\
+Thresholds & $c_{\text{apoptosis}}=0.15$, $n_{\text{quiescence}}=3.0$ \\
+Cell cycle & $\Delta t_{\text{age}}=1.0$, $A_p=1.0$, $A_{p,s}=0.5$ \\
+Mutation & $p=0.01$, $s=0.25$ \\
+\bottomrule
+\end{tabular}
+\end{block}
+
+\begin{alertblock}{Note}
+These defaults are exactly the ones used when notebooks instantiate \texttt{p = Params()}.
+\end{alertblock}
+\end{frame}
+
+% ===== Slide: ANN training =====
+\begin{frame}[c]{ANN implementation and default-weight issue}
+\small
+\begin{block}{\texttt{ann\_training.ipynb} pipeline}
+\begin{itemize}
+  \item Generate 30k samples from rule labels: A if low oxygen, else P if low crowding, else Q.
+  \item Train ANN with mini-batch gradient descent and early stopping.
+  \item Save trained parameters to \texttt{.env\_ann\_params}.
+\end{itemize}
+\end{block}
+
+\begin{block}{Observed issue and fix}
+\begin{itemize}
+  \item Default ANN (untrained) does not reproduce target policy:
+  accuracy $\approx 0.5404$, recall$_P\approx 0.334$, recall$_A\approx 0.200$.
+  \item Trained ANN solves it:
+  accuracy $0.9994$, balanced accuracy $0.9987$, macro F1 $0.9991$, ROC-AUC $1.0000$.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: multi-seed notebook =====
+\begin{frame}[c]{What \texttt{sim\_over\_multiple\_seed.ipynb} does}
+\small
+\begin{block}{Multi-seed protocol}
+\begin{itemize}
+  \item Load trained ANN parameters.
+  \item Simulate 20 seeds for each oxygen case: $c_0$, $c_0/2.5$, $c_0/10$.
+  \item Aggregate trajectories as mean $\pm$ std.
+\end{itemize}
+\end{block}
+
+\begin{block}{Collected outputs}
+\begin{itemize}
+  \item Total tumour cells over time.
+  \item Invasive distance over time.
+  \item Shannon diversity over time.
+  \item Summary table at $t=100$.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: our results =====
+\begin{frame}[c]{Our results (20 seeds, summary at $t=100$)}
+\small
+\begin{block}{Tumour size (mean $\pm$ std)}
+\centering
+\begin{tabular}{lcc}
+\toprule
+Oxygen case & Mean tumour size & Std \\
+\midrule
+$c_0$ & 4772.05 & 340.78 \\
+$c_0/2.5$ & 1158.40 & 159.04 \\
+$c_0/10$ & 0.00 & 0.00 \\
+\bottomrule
+\end{tabular}
+\end{block}
+
+\begin{exampleblock}{Trend}
+\centering
+Lower oxygen $\Rightarrow$ lower growth and stronger stress effects.
+\end{exampleblock}
+\end{frame}
+
+% ===== Slide: differences =====
+\begin{frame}[c]{Differences vs paper results}
+\small
+\begin{block}{What is consistent}
+\begin{itemize}
+  \item Correct qualitative ordering across oxygen conditions.
+  \item Oxygen clearly controls growth/invasion behavior.
+\end{itemize}
+\end{block}
+
+\begin{alertblock}{What differs quantitatively}
+\begin{itemize}
+  \item Our sizes are smaller (e.g., $\sim 4.8\times10^3$ vs paper $\sim 5\times10^4$ at $t=100$, $c_0$ case).
+  \item In our setup, $c_0/10$ collapses to zero by $t=100$.
+\end{itemize}
+\end{alertblock}
+
+\begin{block}{Main reasons}
+\begin{itemize}
+  \item Reduced oxygen-only subsystem and simplified ANN I/O.
+  \item Different calibration of uptake, age, and effective time-scale.
+  \item Stricter starvation dynamics in our step-wise update.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== Slide: conclusions =====
+\begin{frame}[c]{Conclusions}
+\begin{block}{Paper side}
+\begin{itemize}
+  \item Hybrid CA-PDE framework explains oxygen-driven morphology and selection.
+\end{itemize}
+\end{block}
+
+\begin{block}{Implementation side}
+\begin{itemize}
+  \item Reproducible implementation with trained ANN and multi-seed analysis.
+  \item Qualitative agreement achieved; quantitative calibration remains open.
+\end{itemize}
+\end{block}
+\end{frame}
+
+% ===== References slide =====
+\begin{frame}[c]{References}
+\small
+\begin{itemize}
+  \item P. Gerlee, A.R.A. Anderson (2007), \emph{An evolutionary hybrid cellular automaton model of solid tumour growth}, Journal of Theoretical Biology 246:583--603.
+  \item Project files: \texttt{simulation/model.py}, \texttt{simulation/ann\_training.ipynb}, \texttt{simulation/sim\_over\_multiple\_seed.ipynb}.
+\end{itemize}
+\end{frame}
+
+\end{document}
