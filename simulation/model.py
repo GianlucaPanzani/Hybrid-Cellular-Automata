@@ -25,12 +25,12 @@ class Params:
 
     # Oxygen fields
     c0: float = 1.0                         # Paper c_0: fixed oxygen value at the domain boundary (main environmental control parameter).
-    Dc: float = 0.05                      # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
-    Dt: float = 0.2                        # Paper Delta t: simulation time step used in the explicit oxygen update.
-    d: float = 1.0                       # Paper d: lattice spacing used by the finite-difference Laplacian.
+    Dc: float = 0.05                        # Paper D_c: oxygen diffusion coefficient in the reaction-diffusion equation.
+    Dt: float = 0.2                         # Paper Delta t: simulation time step used in the explicit oxygen update.
+    d: float = 1.0                          # Paper d: lattice spacing used by the finite-difference Laplacian.
 
     # Uptake
-    rc: float = 0.4                       # Paper r_c: baseline oxygen consumption rate.
+    rc: float = 0.4                         # Paper r_c: baseline oxygen consumption rate.
     q: float = 5.0                          # Project simplification: quiescent-cell uptake scaling factor (uptake = r_c / q).
     Tr: float = 0.675                       # Paper T_r: response target/threshold in metabolic modulation F(R).
     k: float = 6.0                          # Paper k: slope (gain) of metabolic modulation F(R).
@@ -40,8 +40,8 @@ class Params:
     c_quiescence_threshold: float = 3.0     # Project crowding threshold (on Moore-neighbour count) used by the quiescence gate.
 
     # Cell cycle (hours)
-    Dt_age_inc: float = 1.0                # Project conversion from one CA update to biological hours for age accumulation.
-    Ap: float = 1.0                        # Paper A_p: mean proliferation age (cell-cycle duration) required before division.
+    Dt_age_inc: float = 1.0                 # Project conversion from one CA update to biological hours for age accumulation.
+    Ap: float = 1.0                         # Paper A_p: mean proliferation age (cell-cycle duration) required before division.
     Ap_s: float = 0.5                       # Project heterogeneity term: std dev used to sample per-cell proliferation age around A_p.
 
     # Mutations
@@ -802,11 +802,12 @@ class SimulationModel:
                 self.state[i,j] = QUIESCENT
                 empties = self._von_neumann_empty_neighbors(i, j)
                 # Create the daughter cell
-                ni, nj = empties[self.rng.integers(0, len(empties))]
-                self.state[ni,nj] = PROLIFERATING
-                self.ann[ni,nj] = ann_ij.mutated_copy(self.p, self.rng)
-                self.age_hours[ni,nj] = 0.0
-                self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
+                if empties:
+                    ni, nj = empties[self.rng.integers(0, len(empties))]
+                    self.state[ni,nj] = PROLIFERATING
+                    self.ann[ni,nj] = ann_ij.mutated_copy(self.p, self.rng)
+                    self.age_hours[ni,nj] = 0.0
+                    self.prolif_age_hours[ni,nj] = max(1e-3, float(self.rng.normal(self.p.Ap, self.p.Ap_s)))
                 continue
 
             # 5. Quiescence case
