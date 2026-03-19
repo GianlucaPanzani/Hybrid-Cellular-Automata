@@ -78,12 +78,12 @@
 \end{itemize}
 \end{block}
 
-\begin{block}{Part II - Our implementation}
+\begin{block}{Part II - Implementation of the oxygen concentration model}
 \begin{itemize}
-  \item Implementation in \texttt{model.py}
+  \item Implementation of the model (\texttt{model.py})
   \item ANN training and default-weight issue
-  \item Multi-seed protocol in \texttt{sim\_over\_multiple\_seed.ipynb}
-  \item Results and differences vs paper
+  \item Multi-seed simulations (\texttt{sim\_over\_multiple\_seed.ipynb})
+  \item Results and differences with the paper
 \end{itemize}
 \end{block}
 \end{frame}
@@ -99,7 +99,6 @@
   \item Study how oxygen availability changes morphology, growth, and phenotype selection.
 \end{itemize}
 \end{block}
-
 \begin{block}{Core modeling idea}
 \begin{itemize}
   \item Each cell has an evolvable ANN-based response policy.
@@ -110,7 +109,7 @@
 \end{frame}
 
 % ===== Slide: workflow =====
-\begin{frame}[c]{Modeling workflow in the paper}
+\begin{frame}[c]{Modeling workflow}
 \begin{block}{Hybrid architecture}
 \begin{itemize}
   \item Discrete layer: cellular automaton on a lattice (one cell per site).
@@ -118,7 +117,6 @@
   \item Bidirectional coupling between CA decisions and PDE source/sink terms.
 \end{itemize}
 \end{block}
-
 \begin{block}{Simulation cycle}
 \begin{itemize}
   \item Solve fields on the grid.
@@ -146,7 +144,6 @@ s_{ij}(t+\Delta t)=\mathcal{U}\big(s_{ij}(t),A_{ij}(t),\mathcal{N}_{ij}(t),c,g,h
 \end{cases}
 \]
 \end{block}
-
 \begin{alertblock}{Metabolic modulation (paper Eq. 1)}
 \[
 F(R)=\max\big(k(R-T_r)+1,\,0.25\big).
@@ -242,10 +239,10 @@ N_{c_0/10}\approx 1\times 10^4.
 \end{frame}
 
 % ===== Project section =====
-\section{Our Project Implementation}
+\section{Project Implementation}
 
 % ===== Slide: implementation overview =====
-\begin{frame}[c]{How we implemented the model (\texttt{model.py})}
+\begin{frame}[c]{Implementation of the model (\texttt{model.py})}
 \small
 \begin{block}{Implemented model scope}
 \begin{itemize}
@@ -325,7 +322,7 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary_pre_training.png}
 \vspace{0.15em}
 
-\scriptsize Our pre-training ANN map
+\scriptsize Pre-training ANN map
 
 \column{0.50\textwidth}
 \centering
@@ -345,7 +342,7 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary_post_training.png}
 \vspace{0.15em}
 
-\scriptsize Our post-training ANN map
+\scriptsize Trained ANN map
 
 \column{0.50\textwidth}
 \centering
@@ -357,7 +354,7 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \end{frame}
 
 % ===== Slide: multi-seed notebook =====
-\begin{frame}[c]{What \texttt{sim\_over\_multiple\_seed.ipynb} does}
+\begin{frame}[c]{Simulations (\texttt{sim\_over\_multiple\_seed.ipynb})}
 \small
 \begin{block}{Multi-seed protocol}
 \begin{itemize}
@@ -378,7 +375,7 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \end{frame}
 
 % ===== Slide: total cells over time =====
-\begin{frame}[c]{Total cells over time across oxygen levels}
+\begin{frame}[c]{Population dynamics across oxygen cases (1/2)}
 \centering
 \begin{columns}[c,onlytextwidth]
 \column{0.50\textwidth}
@@ -398,7 +395,7 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \end{frame}
 
 % ===== Slide: population dynamics comparison =====
-\begin{frame}[c]{Population dynamics across oxygen cases}
+\begin{frame}[c]{Population dynamics across oxygen cases (2/2)}
 \centering
 \includegraphics[width=0.315\textwidth]{population_dynamics1.png}\hfill
 \includegraphics[width=0.315\textwidth]{population_dynamics2.png}\hfill
@@ -482,7 +479,7 @@ Lower oxygen $\Rightarrow$ lower growth and stronger stress effects.
 \small
 \begin{itemize}
   \item P. Gerlee, A.R.A. Anderson (2007), \emph{An evolutionary hybrid cellular automaton model of solid tumour growth}, Journal of Theoretical Biology 246:583--603.
-  \item Project files: \texttt{simulation/model.py}, \texttt{simulation/ann\_training.ipynb}, \texttt{simulation/sim\_over\_multiple\_seed.ipynb}.
+  \item Project files: \texttt{simulation/model.py}, \texttt{simulation/ann\_training.ipynb}, \texttt{simulation/sim\_over\_multiple\_seed.ipynb}, \texttt{simulation/utils.py}.
 \end{itemize}
 \end{frame}
 
