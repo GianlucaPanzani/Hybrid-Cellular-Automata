@@ -1,4 +1,4 @@
-This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.12.28)  18 MAR 2026 23:08
+This is pdfTeX, Version 3.141592653-2.6-1.40.27 (TeX Live 2025) (preloaded format=pdflatex 2025.12.28)  19 MAR 2026 12:57
 entering extended mode
  restricted \write18 enabled.
  %&-line parsing enabled.
@@ -806,7 +806,7 @@ Package: array 2024/10/17 v2.6g Tabular extension package (FMi)
 \ar@cellbox=\box78
 )
 LaTeX Font Info:    Trying to load font information for T1+lmss on input line 5
-7.
+8.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/t1lmss.fd
 File: t1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -819,24 +819,24 @@ File: l3backend-pdftex.def 2024-05-08 L3 backend support: PDF output (pdfTeX)
 (./presentation.aux)
 \openout1 = `presentation.aux'.
 
-LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
-LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 57.
-LaTeX Font Info:    ... okay on input line 57.
+LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for OMS/cmsy/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for OT1/cmr/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for T1/cmr/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for TS1/cmr/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for OMX/cmex/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for U/cmr/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for PD1/pdf/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
+LaTeX Font Info:    Checking defaults for PU/pdf/m/n on input line 58.
+LaTeX Font Info:    ... okay on input line 58.
 
 *geometry* driver: auto-detecting
 *geometry* detected driver: pdftex
@@ -894,58 +894,58 @@ Package epstopdf-base Info: Redefining graphics rule for `.eps' on input line 4
 File: epstopdf-sys.cfg 2010/07/13 v1.3 Configuration of (r)epstopdf for TeX Liv
 e
 ))
-Package hyperref Info: Link coloring OFF on input line 57.
+Package hyperref Info: Link coloring OFF on input line 58.
 
 (./presentation.out) (./presentation.out)
 \@outlinefile=\write5
 \openout5 = `presentation.out'.
 
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
-(Font)                  OT1/lmr/m/n --> OT1/cmss/m/n on input line 57.
+(Font)                  OT1/lmr/m/n --> OT1/cmss/m/n on input line 58.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
-(Font)                  OT1/lmr/bx/n --> OT1/cmss/b/n on input line 57.
+(Font)                  OT1/lmr/bx/n --> OT1/cmss/b/n on input line 58.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `normal'
-(Font)                  OT1/cmss/m/n --> OT1/lmss/m/n on input line 57.
+(Font)                  OT1/cmss/m/n --> OT1/lmss/m/n on input line 58.
 LaTeX Font Info:    Overwriting symbol font `operators' in version `bold'
-(Font)                  OT1/cmss/b/n --> OT1/lmss/b/n on input line 57.
+(Font)                  OT1/cmss/b/n --> OT1/lmss/b/n on input line 58.
 \symnumbers=\mathgroup6
 \sympureletters=\mathgroup7
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `normal'
-(Font)                  OT1/lmss/m/n --> T1/lmr/m/n on input line 57.
-LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 57.
+(Font)                  OT1/lmss/m/n --> T1/lmr/m/n on input line 58.
+LaTeX Font Info:    Redeclaring math alphabet \mathbf on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `normal'
-(Font)                  OT1/lmr/bx/n --> T1/lmss/b/n on input line 57.
+(Font)                  OT1/lmr/bx/n --> T1/lmss/b/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  OT1/lmr/bx/n --> T1/lmss/b/n on input line 57.
-LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 57.
+(Font)                  OT1/lmr/bx/n --> T1/lmss/b/n on input line 58.
+LaTeX Font Info:    Redeclaring math alphabet \mathsf on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `normal'
-(Font)                  OT1/lmss/m/n --> T1/lmss/m/n on input line 57.
+(Font)                  OT1/lmss/m/n --> T1/lmss/m/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  OT1/lmss/bx/n --> T1/lmss/m/n on input line 57.
-LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 57.
+(Font)                  OT1/lmss/bx/n --> T1/lmss/m/n on input line 58.
+LaTeX Font Info:    Redeclaring math alphabet \mathit on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `normal'
-(Font)                  OT1/lmr/m/it --> T1/lmss/m/it on input line 57.
+(Font)                  OT1/lmr/m/it --> T1/lmss/m/it on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  OT1/lmr/bx/it --> T1/lmss/m/it on input line 57.
-LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 57.
+(Font)                  OT1/lmr/bx/it --> T1/lmss/m/it on input line 58.
+LaTeX Font Info:    Redeclaring math alphabet \mathtt on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `normal'
-(Font)                  OT1/lmtt/m/n --> T1/lmtt/m/n on input line 57.
+(Font)                  OT1/lmtt/m/n --> T1/lmtt/m/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  OT1/lmtt/m/n --> T1/lmtt/m/n on input line 57.
+(Font)                  OT1/lmtt/m/n --> T1/lmtt/m/n on input line 58.
 LaTeX Font Info:    Overwriting symbol font `numbers' in version `bold'
-(Font)                  T1/lmss/m/n --> T1/lmss/b/n on input line 57.
+(Font)                  T1/lmss/m/n --> T1/lmss/b/n on input line 58.
 LaTeX Font Info:    Overwriting symbol font `pureletters' in version `bold'
-(Font)                  T1/lmss/m/it --> T1/lmss/b/it on input line 57.
+(Font)                  T1/lmss/m/it --> T1/lmss/b/it on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathrm' in version `bold'
-(Font)                  OT1/lmss/b/n --> T1/lmr/b/n on input line 57.
+(Font)                  OT1/lmss/b/n --> T1/lmr/b/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathbf' in version `bold'
-(Font)                  T1/lmss/b/n --> T1/lmss/b/n on input line 57.
+(Font)                  T1/lmss/b/n --> T1/lmss/b/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathsf' in version `bold'
-(Font)                  T1/lmss/m/n --> T1/lmss/b/n on input line 57.
+(Font)                  T1/lmss/m/n --> T1/lmss/b/n on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathit' in version `bold'
-(Font)                  T1/lmss/m/it --> T1/lmss/b/it on input line 57.
+(Font)                  T1/lmss/m/it --> T1/lmss/b/it on input line 58.
 LaTeX Font Info:    Overwriting math alphabet `\mathtt' in version `bold'
-(Font)                  T1/lmtt/m/n --> T1/lmtt/b/n on input line 57.
+(Font)                  T1/lmtt/m/n --> T1/lmtt/b/n on input line 58.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/translator/translator-basic-dicti
 onary-English.dict
@@ -971,22 +971,22 @@ Dictionary: translator-numbers-dictionary, Language: English
 tionary-English.dict
 Dictionary: translator-theorem-dictionary, Language: English 
 ) (./presentation.nav)
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 57--57
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 58--58
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 57--57
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 58--58
 [][][][]  
  []
 
 
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 66--66
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 67--67
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 66--66
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 67--67
 [][][][]  
  []
 
@@ -996,17 +996,17 @@ Overfull \hbox (3.54172pt too wide) in paragraph at lines 66--66
 
 {/usr/local/texlive/2025/texmf-var/fonts/map/pdftex/updmap/pdftex.map}{/usr/loc
 al/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 88--88
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 89--89
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 88--88
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 89--89
 [][][][]  
  []
 
 LaTeX Font Info:    Trying to load font information for T1+lmtt on input line 8
-8.
+9.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/t1lmtt.fd
 File: t1lmtt.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
@@ -1024,12 +1024,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [2
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 91--91
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 92--92
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 91--91
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 92--92
 [][][][]  
  []
 
@@ -1038,12 +1038,12 @@ Overfull \hbox (3.54172pt too wide) in paragraph at lines 91--91
 [3
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 109--109
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 110--110
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 109--109
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 110--110
 [][][][]  
  []
 
@@ -1062,12 +1062,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [4
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 128--128
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 129--129
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 128--128
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 129--129
 [][][][]  
  []
 
@@ -1086,64 +1086,64 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [5
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 154--154
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 155--155
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 154--154
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 155--155
 [][][][]  
  []
 
 LaTeX Font Info:    Trying to load font information for OT1+lmss on input line 
-154.
+155.
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/ot1lmss.fd
 File: ot1lmss.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OML+lmm on input line 1
-54.
+55.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omllmm.fd
 File: omllmm.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMS+lmsy on input line 
-154.
+155.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omslmsy.fd
 File: omslmsy.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    Trying to load font information for OMX+lmex on input line 
-154.
+155.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/omxlmex.fd
 File: omxlmex.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
 )
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <9> on input line 154.
+(Font)              <9> on input line 155.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <6> on input line 154.
+(Font)              <6> on input line 155.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 154.
-LaTeX Font Info:    Trying to load font information for U+msa on input line 154
+(Font)              <5> on input line 155.
+LaTeX Font Info:    Trying to load font information for U+msa on input line 155
 .
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsa.fd
 File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 )
-LaTeX Font Info:    Trying to load font information for U+msb on input line 154
+LaTeX Font Info:    Trying to load font information for U+msb on input line 155
 .
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
 )
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <9> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 154.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 155.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <6> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 154.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 155.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <5> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 154.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 155.
 LaTeX Font Info:    Trying to load font information for T1+lmr on input line 15
-4.
+5.
 
 (/usr/local/texlive/2025/texmf-dist/tex/latex/lm/t1lmr.fd
 File: t1lmr.fd 2015/05/01 v1.6.1 Font defs for Latin Modern
@@ -1165,12 +1165,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 l/texlive/2025/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}{/usr/local/texlive/
 2025/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/local/texlive/2025/texmf-dis
 t/fonts/enc/dvips/lm/lm-mathsy.enc}]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 181--181
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 182--182
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 181--181
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 182--182
 [][][][]  
  []
 
@@ -1189,23 +1189,23 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [7
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 204--204
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 205--205
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 204--204
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 205--205
 [][][][]  
  []
 
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 204.
+(Font)              <10> on input line 205.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 204.
+(Font)              <7> on input line 205.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <10> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 204.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 205.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <7> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 204.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 205.
 
 
 
@@ -1221,23 +1221,23 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [8
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 223--223
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 224--224
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 223--223
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 224--224
 [][][][]  
  []
 
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <12> on input line 223.
+(Font)              <12> on input line 224.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <8> on input line 223.
+(Font)              <8> on input line 224.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <12> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 223.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 224.
 LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <8> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 223.
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 224.
 
 
 
@@ -1253,12 +1253,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [9
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 241--241
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 242--242
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 241--241
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 242--242
 [][][][]  
  []
 
@@ -1277,12 +1277,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [10
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 244--244
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 245--245
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 244--244
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 245--245
 [][][][]  
  []
 
@@ -1291,12 +1291,12 @@ Overfull \hbox (3.54172pt too wide) in paragraph at lines 244--244
 [11
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 267--267
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 266--266
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 267--267
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 266--266
 [][][][]  
  []
 
@@ -1315,20 +1315,21 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [12
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 291--291
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 272--272
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 291--291
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 272--272
 [][][][]  
  []
 
-
-Overfull \hbox (7.84152pt too wide) in paragraph at lines 291--291
- [][] 
- []
-
+<../images/implementation_diagram.png, id=387, 541.02126pt x 778.91pt>
+File: ../images/implementation_diagram.png Graphic file (type png)
+<use ../images/implementation_diagram.png>
+Package pdftex.def Info: ../images/implementation_diagram.png  used on input li
+ne 272.
+(pdftex.def)             Requested size: 131.42451pt x 189.2123pt.
 
 
 
@@ -1343,14 +1344,19 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 
 [13
 
-]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 312--312
+ <../images/implementation_diagram.png>]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 296--296
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 312--312
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 296--296
 [][][][]  
+ []
+
+
+Overfull \hbox (7.84152pt too wide) in paragraph at lines 296--296
+ [][] 
  []
 
 
@@ -1368,12 +1374,12 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [14
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 333--333
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 317--317
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 333--333
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 317--317
 [][][][]  
  []
 
@@ -1392,19 +1398,28 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [15
 
 ]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 355--355
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 337--337
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 355--355
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 337--337
 [][][][]  
  []
 
-LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <14.4> on input line 355.
-LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <14.4> not available
-(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 355.
+<../images/decision_boundary_pre_training.png, id=469, 565.8741pt x 255.1131pt>
+
+File: ../images/decision_boundary_pre_training.png Graphic file (type png)
+<use ../images/decision_boundary_pre_training.png>
+Package pdftex.def Info: ../images/decision_boundary_pre_training.png  used on 
+input line 337.
+(pdftex.def)             Requested size: 197.97255pt x 89.25198pt.
+<../images/decision_boundary.png, id=470, 518.93875pt x 416.55624pt>
+File: ../images/decision_boundary.png Graphic file (type png)
+<use ../images/decision_boundary.png>
+Package pdftex.def Info: ../images/decision_boundary.png  used on input line 33
+7.
+(pdftex.def)             Requested size: 197.97476pt x 158.91591pt.
 
 
 
@@ -1419,16 +1434,29 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 
 [16
 
-]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 381--381
+ <../images/decision_boundary_pre_training.png> <../images/decision_boundary.pn
+g>]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 357--357
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 381--381
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 357--357
 [][][][]  
  []
 
+<../images/decision_boundary_post_training.png, id=482, 565.8741pt x 255.1131pt
+>
+File: ../images/decision_boundary_post_training.png Graphic file (type png)
+<use ../images/decision_boundary_post_training.png>
+Package pdftex.def Info: ../images/decision_boundary_post_training.png  used on
+ input line 357.
+(pdftex.def)             Requested size: 197.97255pt x 89.25198pt.
+File: ../images/decision_boundary.png Graphic file (type png)
+<use ../images/decision_boundary.png>
+Package pdftex.def Info: ../images/decision_boundary.png  used on input line 35
+7.
+(pdftex.def)             Requested size: 197.97476pt x 158.91591pt.
 
 
 
@@ -1443,13 +1471,13 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 
 [17
 
-]
-Overfull \hbox (5.31256pt too wide) in paragraph at lines 397--397
+ <../images/decision_boundary_post_training.png>]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 378--378
 [][][][]  
  []
 
 
-Overfull \hbox (3.54172pt too wide) in paragraph at lines 397--397
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 378--378
 [][][][]  
  []
 
@@ -1468,12 +1496,162 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [18
 
 ]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 398--398
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 398--398
+[][][][]  
+ []
+
+<../images/tot_cells_over_time.png, id=526, 518.93875pt x 414.54875pt>
+File: ../images/tot_cells_over_time.png Graphic file (type png)
+<use ../images/tot_cells_over_time.png>
+Package pdftex.def Info: ../images/tot_cells_over_time.png  used on input line 
+398.
+(pdftex.def)             Requested size: 197.97476pt x 158.15005pt.
+<../images/my_tot_cells_over_time.png, id=527, 606.3453pt x 295.5843pt>
+File: ../images/my_tot_cells_over_time.png Graphic file (type png)
+<use ../images/my_tot_cells_over_time.png>
+Package pdftex.def Info: ../images/my_tot_cells_over_time.png  used on input li
+ne 398.
+(pdftex.def)             Requested size: 197.96658pt x 96.50575pt.
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[19
+
+ <../images/tot_cells_over_time.png> <../images/my_tot_cells_over_time.png>]
 Overfull \hbox (5.31256pt too wide) in paragraph at lines 406--406
 [][][][]  
  []
 
 
 Overfull \hbox (3.54172pt too wide) in paragraph at lines 406--406
+[][][][]  
+ []
+
+<../images/population_dynamics1.png, id=540, 425.6703pt x 327.3831pt>
+File: ../images/population_dynamics1.png Graphic file (type png)
+<use ../images/population_dynamics1.png>
+Package pdftex.def Info: ../images/population_dynamics1.png  used on input line
+ 406.
+(pdftex.def)             Requested size: 127.27026pt x 97.88098pt.
+<../images/population_dynamics2.png, id=541, 425.6703pt x 327.3831pt>
+File: ../images/population_dynamics2.png Graphic file (type png)
+<use ../images/population_dynamics2.png>
+Package pdftex.def Info: ../images/population_dynamics2.png  used on input line
+ 406.
+(pdftex.def)             Requested size: 127.27026pt x 97.88098pt.
+<../images/population_dynamics3.png, id=542, 409.7709pt x 327.3831pt>
+File: ../images/population_dynamics3.png Graphic file (type png)
+<use ../images/population_dynamics3.png>
+Package pdftex.def Info: ../images/population_dynamics3.png  used on input line
+ 406.
+(pdftex.def)             Requested size: 127.27026pt x 101.68253pt.
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[20
+
+ <../images/population_dynamics1.png> <../images/population_dynamics2.png> <../
+images/population_dynamics3.png>]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 414--414
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 414--414
+[][][][]  
+ []
+
+<../images/oxygen_necrotic_pct1.png, id=555, 409.7709pt x 327.3831pt>
+File: ../images/oxygen_necrotic_pct1.png Graphic file (type png)
+<use ../images/oxygen_necrotic_pct1.png>
+Package pdftex.def Info: ../images/oxygen_necrotic_pct1.png  used on input line
+ 414.
+(pdftex.def)             Requested size: 127.27026pt x 101.68253pt.
+<../images/oxygen_necrotic_pct2.png, id=556, 416.2752pt x 327.3831pt>
+File: ../images/oxygen_necrotic_pct2.png Graphic file (type png)
+<use ../images/oxygen_necrotic_pct2.png>
+Package pdftex.def Info: ../images/oxygen_necrotic_pct2.png  used on input line
+ 414.
+(pdftex.def)             Requested size: 127.27026pt x 100.08897pt.
+<../images/oxygen_necrotic_pct3.png, id=557, 416.2752pt x 327.3831pt>
+File: ../images/oxygen_necrotic_pct3.png Graphic file (type png)
+<use ../images/oxygen_necrotic_pct3.png>
+Package pdftex.def Info: ../images/oxygen_necrotic_pct3.png  used on input line
+ 414.
+(pdftex.def)             Requested size: 127.27026pt x 100.08897pt.
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[21
+
+ <../images/oxygen_necrotic_pct1.png> <../images/oxygen_necrotic_pct2.png> <../
+images/oxygen_necrotic_pct3.png>]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 436--436
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 436--436
+[][][][]  
+ []
+
+LaTeX Font Info:    External font `lmex10' loaded for size
+(Font)              <14.4> on input line 436.
+LaTeX Font Info:    Font shape `T1/lmss/m/it' in size <14.4> not available
+(Font)              Font shape `T1/lmss/m/sl' tried instead on input line 436.
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[22
+
+]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 462--462
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 462--462
 [][][][]  
  []
 
@@ -1489,7 +1667,55 @@ Overfull \hbox (5.31256pt too wide) has occurred while \output is active
 [][][][] 
  []
 
-[19
+[23
+
+]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 478--478
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 478--478
+[][][][]  
+ []
+
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[24
+
+]
+Overfull \hbox (5.31256pt too wide) in paragraph at lines 487--487
+[][][][]  
+ []
+
+
+Overfull \hbox (3.54172pt too wide) in paragraph at lines 487--487
+[][][][]  
+ []
+
+
+
+
+Overfull \hbox (3.54172pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+
+Overfull \hbox (5.31256pt too wide) has occurred while \output is active
+[][][][] 
+ []
+
+[25
 
 ]
 \tf@nav=\write6
@@ -1510,10 +1736,10 @@ Package rerunfilecheck Info: File `presentation.out' has not changed.
 (rerunfilecheck)             Checksum: D04D16CE6174A0AFE8A5D9FB7D79D9F4;398.
  ) 
 Here is how much of TeX's memory you used:
- 23698 strings out of 473190
- 461212 string characters out of 5715799
- 826436 words of memory out of 5000000
- 46377 multiletter control sequences out of 15000+600000
+ 23832 strings out of 473190
+ 465821 string characters out of 5715799
+ 825450 words of memory out of 5000000
+ 46499 multiletter control sequences out of 15000+600000
  669007 words of font info for 111 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
  128i,18n,123p,387b,740s stack positions out of 10000i,1000n,20000p,200000b,200000s
@@ -1536,10 +1762,10 @@ xlive/2025/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></usr/local/texlive/2025
 /texmf-dist/fonts/type1/public/lm/lmtt12.pfb></usr/local/texlive/2025/texmf-dis
 t/fonts/type1/public/lm/lmtt8.pfb></usr/local/texlive/2025/texmf-dist/fonts/typ
 e1/public/lm/lmtt9.pfb>
-Output written on presentation.pdf (19 pages, 438261 bytes).
+Output written on presentation.pdf (25 pages, 972446 bytes).
 PDF statistics:
- 724 PDF objects out of 1000 (max. 8388607)
- 412 compressed objects within 5 object streams
- 41 named destinations out of 1000 (max. 500000)
- 1241 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 806 PDF objects out of 1000 (max. 8388607)
+ 452 compressed objects within 5 object streams
+ 53 named destinations out of 1000 (max. 500000)
+ 1301 words of extra memory for PDF output out of 10000 (max. 10000000)
 

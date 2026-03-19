@@ -17,6 +17,7 @@
 \usepackage{booktabs}
 \usepackage{array}
 \usepackage{hyperref}
+\graphicspath{{../images/}}
 
 % ===== Metadata =====
 \title[Hybrid CA: Paper + Implementation]{Hybrid Cellular Automata for Avascular Tumour Growth\\Paper Analysis and Project Implementation}
@@ -249,21 +250,25 @@ N_{c_0/10}\approx 1\times 10^4.
 \begin{block}{Implemented model scope}
 \begin{itemize}
   \item Oxygen-only reduced model.
-  \item States: \texttt{EMPTY}, \texttt{PROLIFERATING}, \texttt{QUIESCENT}, \texttt{NECROTIC}, \texttt{DEAD}.
+  \item States: \texttt{EMPTY}, \texttt{PROLIFERATING}, \texttt{QUIESCENT}, \texttt{NECROTIC}, \texttt{APOPTOTIC}.
   \item ANN input reduced to $\epsilon=[n_{\text{neighbors}}, c]$.
 \end{itemize}
 \end{block}
 
 \begin{block}{Numerical update in code}
-\[
-\begin{cases}
-\text{ANN forward} \rightarrow \text{action }(P,Q,A),\\
-\text{age update with }F(R),\\
-\text{apoptosis / necrosis / proliferation rules},\\
-c^{t+\Delta t}=c^t+\Delta t\big(D_c\Delta c-\alpha\big),\; c\ge 0.
-\end{cases}
-\]
+\begin{itemize}
+  \item $\text{ANN forward} \rightarrow \text{action }(P,Q,A)$
+  \item $\text{age update with }F(R)$
+  \item $\text{apoptosis / necrosis / proliferation rules}$
+  \item $c^{t+\Delta t}=c^t+\Delta t\big(D_c\Delta c-\alpha\big),\; c\ge 0$
+\end{itemize}
 \end{block}
+\end{frame}
+
+% ===== Slide: implementation diagram =====
+\begin{frame}[c]{Implementation diagram}
+\centering
+\includegraphics[width=0.96\textwidth,height=0.80\textheight,keepaspectratio]{implementation_diagram.png}
 \end{frame}
 
 % ===== Slide: default parameters =====
@@ -311,6 +316,46 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
 \end{block}
 \end{frame}
 
+% ===== Slide: ANN decision boundary before training =====
+\begin{frame}[c]{ANN decision boundary before training}
+\centering
+\begin{columns}[c,onlytextwidth]
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary_pre_training.png}
+\vspace{0.15em}
+
+\scriptsize Our pre-training ANN map
+
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary.png}
+\vspace{0.15em}
+
+\scriptsize Reference decision boundary
+\end{columns}
+\end{frame}
+
+% ===== Slide: ANN decision boundary after training =====
+\begin{frame}[c]{ANN decision boundary after training}
+\centering
+\begin{columns}[c,onlytextwidth]
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary_post_training.png}
+\vspace{0.15em}
+
+\scriptsize Our post-training ANN map
+
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.68\textheight,keepaspectratio]{decision_boundary.png}
+\vspace{0.15em}
+
+\scriptsize Reference decision boundary
+\end{columns}
+\end{frame}
+
 % ===== Slide: multi-seed notebook =====
 \begin{frame}[c]{What \texttt{sim\_over\_multiple\_seed.ipynb} does}
 \small
@@ -330,6 +375,42 @@ These defaults are exactly the ones used when notebooks instantiate \texttt{p = 
   \item Summary table at $t=100$.
 \end{itemize}
 \end{block}
+\end{frame}
+
+% ===== Slide: total cells over time =====
+\begin{frame}[c]{Total cells over time across oxygen levels}
+\centering
+\begin{columns}[c,onlytextwidth]
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.70\textheight,keepaspectratio]{tot_cells_over_time.png}
+\vspace{0.15em}
+
+\scriptsize Reference
+
+\column{0.50\textwidth}
+\centering
+\includegraphics[width=0.98\linewidth,height=0.70\textheight,keepaspectratio]{my_tot_cells_over_time.png}
+\vspace{0.15em}
+
+\scriptsize Our result
+\end{columns}
+\end{frame}
+
+% ===== Slide: population dynamics comparison =====
+\begin{frame}[c]{Population dynamics across oxygen cases}
+\centering
+\includegraphics[width=0.315\textwidth]{population_dynamics1.png}\hfill
+\includegraphics[width=0.315\textwidth]{population_dynamics2.png}\hfill
+\includegraphics[width=0.315\textwidth]{population_dynamics3.png}
+\end{frame}
+
+% ===== Slide: oxygen and necrotic percentage comparison =====
+\begin{frame}[c]{Oxygen and necrotic percentage across oxygen cases}
+\centering
+\includegraphics[width=0.315\textwidth]{oxygen_necrotic_pct1.png}\hfill
+\includegraphics[width=0.315\textwidth]{oxygen_necrotic_pct2.png}\hfill
+\includegraphics[width=0.315\textwidth]{oxygen_necrotic_pct3.png}
 \end{frame}
 
 % ===== Slide: our results =====
