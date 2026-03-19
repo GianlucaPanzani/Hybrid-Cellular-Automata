@@ -15,7 +15,7 @@ from model import (
     PROLIFERATING,
     QUIESCENT,
     NECROTIC,
-    DEAD,
+    APOPTOTIC,
 )
 from model import Params
 
@@ -27,7 +27,7 @@ STATE_COLORS = {
     "proliferating": "#ed2f2f",
     "quiescent": "#239251",
     "necrotic": "#ffbf00",
-    "dead": "#2020a8",
+    "apoptotic": "#2020a8",
 }
 
 
@@ -271,14 +271,14 @@ def create_animation(sim: SimulationModel, p: Params):
     fig.subplots_adjust(left=0.04, right=0.96, top=0.90, bottom=0.14, wspace=0.10)
 
     # Left animation: cell state visualization
-    state_values = [int(EMPTY), int(PROLIFERATING), int(QUIESCENT), int(NECROTIC), int(DEAD)]
-    state_labels = ["empty", "proliferating", "quiescent", "necrotic", "dead"]
+    state_values = [int(EMPTY), int(PROLIFERATING), int(QUIESCENT), int(NECROTIC), int(APOPTOTIC)]
+    state_labels = ["empty", "proliferating", "quiescent", "necrotic", "apoptotic"]
     state_colors = [
         STATE_COLORS["empty"],
         STATE_COLORS["proliferating"],
         STATE_COLORS["quiescent"],
         STATE_COLORS["necrotic"],
-        STATE_COLORS["dead"],
+        STATE_COLORS["apoptotic"],
     ]
     state_cmap = ListedColormap(state_colors)
     state_norm = BoundaryNorm(np.arange(len(state_values) + 1) - 0.5, state_cmap.N)
@@ -323,7 +323,7 @@ def create_animation(sim: SimulationModel, p: Params):
         im_state.set_data(sim.state)
         im_c.set_data(sim.c)
         txt.set_text(
-            f"step={frame_idx} | P={out['proliferating']} | Q={out['quiescent']} | N={out['necrotic']} | D={out['dead']} | c_min={out['c_min']:.3f}"
+            f"step={frame_idx} | P={out['proliferating']} | Q={out['quiescent']} | N={out['necrotic']} | D={out['apoptotic']} | c_min={out['c_min']:.3f}"
         )
         return (im_state, im_c, txt)
 
@@ -382,15 +382,15 @@ def eval_simulation(history: Dict[str, np.ndarray], params: Params) -> float:
     alive_end = float(history["alive"][-1])
     growth_ratio = alive_end / max(alive_start, 1.0)
 
-    # Number of necrotic and dead cells at the end
+    # Number of necrotic and apoptotic cells at the end
     necrotic_end = float(history["necrotic"][-1])
-    dead_end = float(history["dead"][-1])
+    apoptotic_end = float(history["apoptotic"][-1])
 
     # Correctness heuristic
     if not (
         (growth_ratio > 1)          # growth ensured
         and (necrotic_end >= 1)     # necrosis ensured
-        and (dead_end > 0)          # death ensured
+        and (apoptotic_end > 0)          # death ensured
     ):
         return 0
     
@@ -404,7 +404,7 @@ def eval_simulation(history: Dict[str, np.ndarray], params: Params) -> float:
     p_ts = np.array(history["proliferating"], dtype=np.float64) / N_square
     q_ts = np.array(history["quiescent"], dtype=np.float64) / N_square
     n_ts = np.array(history["necrotic"], dtype=np.float64) / N_square
-    d_ts = np.array(history["dead"], dtype=np.float64) / N_square
+    d_ts = np.array(history["apoptotic"], dtype=np.float64) / N_square
     e_ts = (np.array(history["empty"], dtype=np.float64) - min(history["empty"])) / N_square
 
     # Normalize as the mean over time, each in [0, 1]

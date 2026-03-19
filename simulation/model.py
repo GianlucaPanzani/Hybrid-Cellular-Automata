@@ -7,7 +7,7 @@ EMPTY = np.uint8(0)
 PROLIFERATING = np.uint8(1)
 QUIESCENT = np.uint8(2)
 NECROTIC = np.uint8(3)
-DEAD = np.uint8(4)
+APOPTOTIC = np.uint8(4)
 
 
 @dataclass
@@ -678,7 +678,7 @@ class SimulationModel:
         neighborhood = []
         for di, dj in ((-1,0), (1,0), (0,-1), (0,1)):
             ni, nj = i + di, j + dj
-            if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == EMPTY or self.state[ni,nj] == DEAD):
+            if (0 <= ni < N) and (0 <= nj < N) and (self.state[ni,nj] == EMPTY or self.state[ni,nj] == APOPTOTIC):
                 neighborhood.append((ni,nj))
         return tuple(neighborhood)
 
@@ -783,7 +783,7 @@ class SimulationModel:
             
             # 3. Apoptosis case
             if action == 'A':
-                self.state[i,j] = DEAD
+                self.state[i,j] = APOPTOTIC
                 self.ann[i,j] = None
                 action_map[i,j] = np.int8(-1)
                 F_map[i,j] = np.float32(0.0)
@@ -823,7 +823,7 @@ class SimulationModel:
             "proliferating": int(np.sum(self.state == PROLIFERATING)),
             "quiescent": int(np.sum(self.state == QUIESCENT)),
             "necrotic": int(np.sum(self.state == NECROTIC)),
-            "dead": int(np.sum(self.state == DEAD)),
+            "apoptotic": int(np.sum(self.state == APOPTOTIC)),
             "empty": int(np.sum(self.state == EMPTY)),
             "c_min": float(self.c.min()),
             "c_mean": float(self.c.mean())
@@ -846,8 +846,7 @@ class SimulationModel:
         prolif_ts = np.zeros(self.p.steps, dtype=np.int32)
         quiesc_ts = np.zeros(self.p.steps, dtype=np.int32)
         nec_ts = np.zeros(self.p.steps, dtype=np.int32)
-        dead_ts = np.zeros(self.p.steps, dtype=np.int32)
-        total_ts = np.zeros(self.p.steps, dtype=np.int32)
+        apoptotic_ts = np.zeros(self.p.steps, dtype=np.int32)
         empty_ts = np.zeros(self.p.steps, dtype=np.int32)
         cmean_ts = np.zeros(self.p.steps, dtype=np.float32)
         cmin_ts = np.zeros(self.p.steps, dtype=np.float32)
@@ -870,7 +869,7 @@ class SimulationModel:
             prolif_ts[t] = out["proliferating"]
             quiesc_ts[t] = out["quiescent"]
             nec_ts[t] = out["necrotic"]
-            dead_ts[t] = out["dead"]
+            apoptotic_ts[t] = out["apoptotic"]
             empty_ts[t] = out["empty"]
             cmean_ts[t] = out["c_mean"]
             cmin_ts[t] = out["c_min"]
@@ -911,7 +910,7 @@ class SimulationModel:
             "proliferating": prolif_ts,
             "quiescent": quiesc_ts,
             "necrotic": nec_ts,
-            "dead": dead_ts,
+            "apoptotic": apoptotic_ts,
             "empty": empty_ts,
             "c_mean": cmean_ts,
             "c_min": cmin_ts,
