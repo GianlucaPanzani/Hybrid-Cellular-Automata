@@ -815,7 +815,7 @@ class SimulationModel:
                 self.state[i,j] = QUIESCENT
                 continue
 
-        # Oxygen PDE update from effective actions taken in this CA step
+        # Oxygen PDE update of every cell based on the actions taken in this CA step
         alpha = self._uptake_alpha(action_map, F_map)
         self.c = oxygen_step_explicit(self.c, alpha, self.p)
 

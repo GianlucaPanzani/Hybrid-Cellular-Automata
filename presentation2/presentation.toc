@@ -1,3 +1,0 @@
-\babel@toc {english}{}\relax 
-\beamer@sectionintoc {1}{Paper: Gerlee \& Anderson (2007)}{3}{0}{1}
-\beamer@sectionintoc {2}{Our Project Implementation}{11}{0}{2}
